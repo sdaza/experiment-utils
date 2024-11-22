@@ -1,4 +1,4 @@
-# Experimental utils
+# Experiment utils
 
 Generic functions for experiment analysis and design
 
