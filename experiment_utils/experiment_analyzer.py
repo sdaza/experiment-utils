@@ -492,19 +492,20 @@ class ExperimentAnalyzer:
                             data=temp_group, outcome_variable=outcome
                         )
                     )
+                results['experimental_unit'] = row
 
         self.results = pd.DataFrame(results)
 
 
-    def pool_results(self):
+    def combine_results(self):
         pooled_results = self.unit_results.groupby(['group', 'outcome']).apply(
-            lambda df: pd.Series(self.get_pooled_estimate(df))
+            lambda df: pd.Series(self.get_combined_estimate(df))
         ).reset_index()
 
         return pooled_results
 
 
-    def get_pooled_estimate(self, data):
+    def get_combined_estimate(self, data):
         weights = 1 / (data['standard_error'] ** 2)
         absolute_estimate = np.sum(weights * data['absolute_uplift']) / np.sum(weights)
         pooled_standard_error = np.sqrt(1 / np.sum(weights))
