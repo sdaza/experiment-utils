@@ -15,6 +15,24 @@ pip install git+https://github.com/sdaza/experiment-utils.git
 
 # How to use it
 
+## Experiment Analyzer
+
+
+```python
+analyzer = ExperimentAnalyzer(
+    df,
+    treatment_col="treatment",
+    group_col="group",
+    outcomes=['registrations', 'visits'],
+    covariates=covariates,
+    instrument_col="instrument",
+    experimental_units=["campaign_key"],
+    adjustment=None)
+
+analyzer.get_uplifts()
+analyzer.results
+```
+
 ## Power Analysis
 
 

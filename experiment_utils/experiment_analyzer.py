@@ -1,6 +1,10 @@
+"""
+Class ExperimentAnlyzer to analyzie experiments and campaigns
+"""
 
 from pyspark.sql import functions as F
 from pyspark.sql import DataFrame
+from spark_instance import *
 import pandas as pd
 import numpy as np
 from typing import Dict, List
@@ -12,10 +16,6 @@ from scipy import stats
 
 
 class ExperimentAnalyzer:
-    """
-    Class to analyze experiments on campaigns
-    """
-
     def __init__(
         self,
         data: DataFrame,
@@ -30,7 +30,7 @@ class ExperimentAnalyzer:
     ):
 
         """
-        Initialize an ExperimentAnalyzer object.
+        Initialize an ExperimentAnalyzer object
 
         Parameters
         ----------
@@ -47,7 +47,7 @@ class ExperimentAnalyzer:
         experimental_units : List
             List of experimental units, by default ["campaign_key"]
         target_ipw_effect : str, optional
-            Target IPW effect, by default "ATT"
+            Target IPW effect (ATT, ATE, ATC), by default "ATT"
         adjustment : str, optional
             Adjustment method, by default None
         instrument_col : str, optional
@@ -67,7 +67,7 @@ class ExperimentAnalyzer:
 
         self.target_weights = {"ATT": "tips_stabilized_weight", 
                                "ATE": "ipw_stabilized_weight", 
-                               "A" : "cips_stabilized_weight"}
+                               "ATC" : "cips_stabilized_weight"}
 
 
     def __check_input(self):
@@ -159,7 +159,8 @@ class ExperimentAnalyzer:
         results = model.fit(cov_type="HC3")
 
         coefficient = results.params[self.treatment_col]
-        relative_uplift = coefficient / results.params["Intercept"]
+        intercept = results.params["Intercept"]
+        relative_uplift = coefficient / intercept
         standard_error = results.bse[self.treatment_col]
         p_value = results.pvalues[self.treatment_col]
 
@@ -167,6 +168,9 @@ class ExperimentAnalyzer:
             "group": data[self.group_col].unique()[0],
             "outcome": outcome_variable,
             "treatment_members": data[self.treatment_col].sum(),
+            "control_members": data[self.treatment_col].count() - data[self.treatment_col].sum(),
+            "control_value": intercept,
+            "treatment_value": intercept+coefficient,
             "absolute_uplift": coefficient,
             "relative_uplift": relative_uplift,
             "standard_error": standard_error,
@@ -199,7 +203,8 @@ class ExperimentAnalyzer:
         results = model.fit(cov_type="HC3")
 
         coefficient = results.params[self.treatment_col]
-        relative_uplift = coefficient / results.params["Intercept"]
+        intercept = results.params["Intercept"]
+        relative_uplift = coefficient / intercept
         standard_error = results.bse[self.treatment_col]
         p_value = results.pvalues[self.treatment_col]
 
@@ -207,6 +212,9 @@ class ExperimentAnalyzer:
             "group": data[self.group_col].unique()[0],
             "outcome": outcome_variable,
             "treatment_members": data[self.treatment_col].sum(),
+            "control_members": data[self.treatment_col].count() - data[self.treatment_col].sum(),
+            "control_value": intercept,
+            "treatment_value": intercept+coefficient,
             "absolute_uplift": coefficient,
             "relative_uplift": relative_uplift,
             "standard_error": standard_error,
@@ -232,6 +240,7 @@ class ExperimentAnalyzer:
         pd.DataFrame
             Data with the estimated IPW
         """
+            
         causal_model = CausalModel(
             data=data,
             treatment=self.treatment_col,
@@ -256,7 +265,6 @@ class ExperimentAnalyzer:
                 },
             },
         )
-
         return data
 
 
@@ -284,7 +292,8 @@ class ExperimentAnalyzer:
         results = model.fit(cov_type='robust')
 
         coefficient = results.params[self.treatment_col]
-        relative_uplift = coefficient / results.params["Intercept"]
+        intercept = results.params["Intercept"]
+        relative_uplift = coefficient / intercept
         standard_error = results.std_errors[self.treatment_col]
         p_value = results.pvalues[self.treatment_col]
 
@@ -292,6 +301,9 @@ class ExperimentAnalyzer:
             "group": data[self.group_col].unique()[0],
             "outcome": outcome_variable,
             "treatment_members": data[self.treatment_col].sum(),
+            "control_members": data[self.treatment_col].count() - data[self.treatment_col].sum(),
+            "control_value": intercept,
+            "treatment_value": intercept+coefficient,
             "absolute_uplift": coefficient,
             "relative_uplift": relative_uplift,
             "standard_error": standard_error,
@@ -436,13 +448,12 @@ class ExperimentAnalyzer:
                 temp_group = self.standardize_covariates(
                     temp_group, final_covariates
                 )
-                print(final_covariates)
                 
                 balance = self.calculate_smd(
                     data=temp_group, covariates=final_covariates
                 )
                 print(
-                    f'::::: Initial balance {group}: {np.round(balance["balance_flag"].mean(), 2)}'
+                    f'::::: Balance {group}: {np.round(balance["balance_flag"].mean(), 2)}'
                 )
                 imbalance = balance[balance.balance_flag==0]
                 if imbalance.shape[0] > 0:
@@ -482,7 +493,7 @@ class ExperimentAnalyzer:
                         )
                     )
 
-        self.unit_results = pd.DataFrame(results)
+        self.results = pd.DataFrame(results)
 
 
     def pool_results(self):
