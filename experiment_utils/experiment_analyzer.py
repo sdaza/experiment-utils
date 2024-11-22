@@ -65,7 +65,9 @@ class ExperimentAnalyzer:
         self.instrument_col = instrument_col
         self.__check_input()
 
-        self.target_weights = {"ATT": "tips_stabilized_weight"}
+        self.target_weights = {"ATT": "tips_stabilized_weight", 
+                               "ATE": "ipw_stabilized_weight", 
+                               "A" : "cips_stabilized_weight"}
 
 
     def __check_input(self):
