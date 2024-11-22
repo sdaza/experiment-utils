@@ -25,6 +25,7 @@ setup(
         'statsmodels>=0.13.2', 
         'scipy>=1.9.1', 
 		'dowhy==0.11.1',
-		'linearmodels==6.1'
+		'linearmodels==6.1',
+		'functools==0.5'
     ],
 )
