@@ -487,12 +487,10 @@ class ExperimentAnalyzer:
                 }
 
                 for outcome in self.outcomes:
-                    results.append(
-                        models[adjustment](
-                            data=temp_group, outcome_variable=outcome
-                        )
-                    )
-                results['experimental_unit'] = row
+                    output = models[adjustment](data=temp_group, outcome_variable=outcome)
+                    output['experimental_unit'] = list(row.asDict().values())
+
+                    results.append(output)
 
         self.results = pd.DataFrame(results)
 
