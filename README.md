@@ -5,6 +5,7 @@ Generic functions for experiment analysis and design
 - [Experimental utils](#experimental-utils)
 - [Installation](#installation)
 - [How to use it](#how-to-use-it)
+    - [Experiment Analyzer](#experiment-analyzer)
 	- [Power Analysis](#power-analysis)
 
 # Installation 
