@@ -531,6 +531,10 @@ class ExperimentAnalyzer:
                     output['experimental_unit'] = list(row.asDict().values())
                     results.append(output)
 
+        results_columns = ['experimental_unit', 'group', 'outcome', 'balance', 'treatment_members', 'control_members', 'control_value', 
+                           'treatment_value', 'absolute_uplift', 'relative_uplift', 'stat_significance', 'standard_error', 
+                           'pvalue']
+
         self.results = pd.DataFrame(results)
 
 
@@ -567,8 +571,8 @@ class ExperimentAnalyzer:
         results = {
             'treatment_members': data['treatment_members'].sum(),
             'control_members': data['control_members'].sum(),
-            'pooled_absolute_uplift': absolute_estimate,
-            'pooled_relative_uplift': relative_estimate,
+            'combined_absolute_uplift': absolute_estimate,
+            'combined_relative_uplift': relative_estimate,
             'standard_error': pooled_standard_error,
             'pvalue': stats.norm.sf(abs(absolute_estimate/ pooled_standard_error)) * 2
         }
