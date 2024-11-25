@@ -531,11 +531,11 @@ class ExperimentAnalyzer:
                     output['experimental_unit'] = list(row.asDict().values())
                     results.append(output)
 
-        results_columns = ['experimental_unit', 'group', 'outcome', 'balance', 'treatment_members', 'control_members', 'control_value', 
+        result_columns = ['experimental_unit', 'group', 'outcome', 'balance', 'treatment_members', 'control_members', 'control_value', 
                            'treatment_value', 'absolute_uplift', 'relative_uplift', 'stat_significance', 'standard_error', 
                            'pvalue']
 
-        self.results = pd.DataFrame(results)
+        self.results = pd.DataFrame(results)[result_columns]
 
 
     def combine_results(self, grouping_cols=['group', 'outcome']):
@@ -558,8 +558,11 @@ class ExperimentAnalyzer:
             lambda df: pd.Series(self.__get_combined_estimate(df))
         ).reset_index()
 
+        result_columns = grouping_cols + ['average_balance', 'treatment_members', 'control_members', 
+                                          'combined_absolute_uplift', 'combined_relative_uplift', 
+                                          'stat_significance', 'standard_error', 'pvalue']
         pooled_results['stat_significance'] = pooled_results['stat_significance'].astype(int)
-        return pooled_results
+        return pooled_results[result_columns]
 
 
     def __get_combined_estimate(self, data):
@@ -569,6 +572,7 @@ class ExperimentAnalyzer:
         relative_estimate = np.sum(weights * data['relative_uplift']) / np.sum(weights)
 
         results = {
+            'average_balance': data['balance'].mean(),
             'treatment_members': data['treatment_members'].sum(),
             'control_members': data['control_members'].sum(),
             'combined_absolute_uplift': absolute_estimate,
