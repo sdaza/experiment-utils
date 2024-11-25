@@ -1,5 +1,5 @@
 """
-Class ExperimentAnlyzer to analyzie experiments and campaigns
+Class ExperimentAnlyzer to analyze and design experiments
 """
 
 from pyspark.sql import functions as F
@@ -12,6 +12,7 @@ from functools import reduce
 from dowhy import CausalModel
 from linearmodels.iv import IV2SLS
 import statsmodels.formula.api as smf
+from statsmodels.stats.meta_analysis import combine_effects
 from scipy import stats
 
 
@@ -533,21 +534,35 @@ class ExperimentAnalyzer:
         self.results = pd.DataFrame(results)
 
 
-    def combine_results(self):
-        pooled_results = self.results.groupby(['group', 'outcome']).apply(
-            lambda df: pd.Series(self.get_combined_estimate(df))
+    def combine_results(self, grouping_cols=['group', 'outcome'], effect='fixed'):
+        """
+        Combine results across all experimental units using meta-analysis.
+
+        Parameters
+        ----------
+        grouping_cols : list, optional
+            The columns to group by. Defaults to ['group', 'outcome']
+        effect : str, optional
+            The method to use for combining results (fixed or random). Defaults to 'fixed'.    
+
+        Returns
+        -------
+        A Pandas DataFrame with combined results
+        """
+
+        pooled_results = self.results.groupby(grouping_cols).apply(
+            lambda df: pd.Series(self.get_combined_estimate(df, effect=effect))
         ).reset_index()
 
         pooled_results['stat_significance'] = pooled_results['stat_significance'].astype(int)
         return pooled_results
 
-
     def get_combined_estimate(self, data):
-        weights = 1 / (data['standard_error'] ** 2)
-        absolute_estimate = np.sum(weights * data['absolute_uplift']) / np.sum(weights)
-        pooled_standard_error = np.sqrt(1 / np.sum(weights))
-        relative_estimate = np.sum(weights * data['relative_uplift']) / np.sum(weights)
 
+        effect_sizes = data.absolute_uplift  # list of effect sizes
+        standard_errors = data.standard_error
+        combined_effect = combine_effects(effect_sizes, standard_errors**2)
+        ce = combined_effect.summary_frame()
         results = {
             'treatment_members': data['treatment_members'].sum(),
             'control_members': data['control_members'].sum(),
@@ -557,5 +572,5 @@ class ExperimentAnalyzer:
             'pvalue': stats.norm.sf(abs(absolute_estimate/ pooled_standard_error)) * 2
         }
         results['stat_significance'] = 1 if results['pvalue'] < self.pvalue_threshold else 0
-        
-        return results
+    
+    return results
