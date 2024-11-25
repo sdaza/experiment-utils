@@ -534,9 +534,9 @@ class ExperimentAnalyzer:
         self.results = pd.DataFrame(results)
 
 
-    def combine_results(self, grouping_cols=['group', 'outcome'], effect='fixed'):
+    def combine_results(self, grouping_cols=['group', 'outcome']):
         """
-        Combine results across all experimental units using meta-analysis.
+        Combine results across all experimental units using fixed effects meta-analysis.
 
         Parameters
         ----------
@@ -551,18 +551,19 @@ class ExperimentAnalyzer:
         """
 
         pooled_results = self.results.groupby(grouping_cols).apply(
-            lambda df: pd.Series(self.get_combined_estimate(df, effect=effect))
+            lambda df: pd.Series(self.__get_combined_estimate(df))
         ).reset_index()
 
         pooled_results['stat_significance'] = pooled_results['stat_significance'].astype(int)
         return pooled_results
 
-    def get_combined_estimate(self, data):
 
-        effect_sizes = data.absolute_uplift  # list of effect sizes
-        standard_errors = data.standard_error
-        combined_effect = combine_effects(effect_sizes, standard_errors**2)
-        ce = combined_effect.summary_frame()
+    def __get_combined_estimate(self, data):
+        weights = 1 / (data['standard_error'] ** 2)
+        absolute_estimate = np.sum(weights * data['absolute_uplift']) / np.sum(weights)
+        pooled_standard_error = np.sqrt(1 / np.sum(weights))
+        relative_estimate = np.sum(weights * data['relative_uplift']) / np.sum(weights)
+
         results = {
             'treatment_members': data['treatment_members'].sum(),
             'control_members': data['control_members'].sum(),
@@ -573,4 +574,4 @@ class ExperimentAnalyzer:
         }
         results['stat_significance'] = 1 if results['pvalue'] < self.pvalue_threshold else 0
     
-    return results
+        return results
