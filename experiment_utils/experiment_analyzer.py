@@ -26,7 +26,9 @@ class ExperimentAnalyzer:
         experimental_units: List = ["campaign_key"],
         target_ipw_effect: str = "ATT",
         adjustment: str = None,
-        instrument_col: str = None
+        instrument_col: str = None,
+        formula: str = None,
+        pvalue_threshold: float = 0.05
     ):
 
         """
@@ -52,6 +54,10 @@ class ExperimentAnalyzer:
             Adjustment method, by default None
         instrument_col : str, optional
             Column name for the instrument variable, by default None
+        formula : str, optional
+            Formula for the estimated regression, by default None
+        pvalue_threshold : float, optional
+            P-value threshold for statistical significance, by default 0.05
         """
         
         self.data = data
@@ -64,6 +70,8 @@ class ExperimentAnalyzer:
         self.adjustment = adjustment
         self.instrument_col = instrument_col
         self.__check_input()
+        self.formula = None
+        self.pvalue_threshold = pvalue_threshold
 
         self.target_weights = {"ATT": "tips_stabilized_weight", 
                                "ATE": "ipw_stabilized_weight", 
@@ -138,7 +146,7 @@ class ExperimentAnalyzer:
         return data
 
 
-    def linear_regression(self, data: pd.DataFrame, outcome_variable: str) -> Dict:
+    def linear_regression(self, data: pd.DataFrame, outcome_variable: str, formula: str = None) -> Dict:
         """
         Runs a linear regression of the outcome variable on the treatment variable.
 
@@ -148,13 +156,18 @@ class ExperimentAnalyzer:
             Data to run the regression on
         outcome_variable : str
             Name of the outcome variable
+        formula : str, optional
+            Regression formula, by default None
 
         Returns
         -------
         Dict
             Regression results
         """
+        
+
         formula = f"{outcome_variable} ~ {self.treatment_col}"
+        self.formula = formula
         model = smf.ols(formula, data=data)
         results = model.fit(cov_type="HC3")
 
@@ -162,7 +175,7 @@ class ExperimentAnalyzer:
         intercept = results.params["Intercept"]
         relative_uplift = coefficient / intercept
         standard_error = results.bse[self.treatment_col]
-        p_value = results.pvalues[self.treatment_col]
+        pvalue = results.pvalues[self.treatment_col]
 
         return {
             "group": data[self.group_col].unique()[0],
@@ -174,11 +187,12 @@ class ExperimentAnalyzer:
             "absolute_uplift": coefficient,
             "relative_uplift": relative_uplift,
             "standard_error": standard_error,
-            "p_value": p_value,
+            "pvalue": pvalue,
+            "stat_significance": 1 if pvalue < self.pvalue_threshold else 0
         }
 
 
-    def weighted_least_squares(self, data: pd.DataFrame, outcome_variable: str) -> Dict:
+    def weighted_least_squares(self, data: pd.DataFrame, outcome_variable: str, formula: str = None) -> Dict:
         """
         Runs a weighted least squares regression of the outcome variable on the treatment variable.
 
@@ -188,13 +202,19 @@ class ExperimentAnalyzer:
             Data to run the regression on
         outcome_variable : str
             Name of the outcome variable
-
+        formula : str, optional
+            Regression formula, by default None
         Returns
         -------
         Dict
             Regression results
         """
-        formula = f"{outcome_variable} ~ 1 + {self.treatment_col}"
+
+        if formula is None:
+            formula = f"{outcome_variable} ~ 1 + {self.treatment_col}"
+        else: 
+            formula = self.formula
+
         model = smf.wls(
             formula,
             data=data,
@@ -206,7 +226,7 @@ class ExperimentAnalyzer:
         intercept = results.params["Intercept"]
         relative_uplift = coefficient / intercept
         standard_error = results.bse[self.treatment_col]
-        p_value = results.pvalues[self.treatment_col]
+        pvalue = results.pvalues[self.treatment_col]
 
         return {
             "group": data[self.group_col].unique()[0],
@@ -218,7 +238,8 @@ class ExperimentAnalyzer:
             "absolute_uplift": coefficient,
             "relative_uplift": relative_uplift,
             "standard_error": standard_error,
-            "p_value": p_value,
+            "pvalue": pvalue,
+            "stat_significance": 1 if pvalue < self.pvalue_threshold else 0
         }
 
 
@@ -268,7 +289,7 @@ class ExperimentAnalyzer:
         return data
 
 
-    def iv_regression(self, data: pd.DataFrame, outcome_variable: str) -> Dict:
+    def iv_regression(self, data: pd.DataFrame, outcome_variable: str, formula: str = None) -> Dict:
         """
         Perform instrumental variable regression of the outcome variable on the treatment variable.
 
@@ -278,16 +299,23 @@ class ExperimentAnalyzer:
             Data to run the regression on
         outcome_variable : str
             Name of the outcome variable
+        formula : str, optional
+            Regression formula, by default None
 
         Returns
         -------
         Dict
             Regression results including absolute and relative uplift, standard error, and p-value
         """
+
         if not self.instrument_col:
             raise ValueError("Instrument column must be specified for IV adjustment")
 
-        formula = f"{outcome_variable} ~ 1 + [{self.treatment_col} ~ {self.instrument_col}]"
+        if formula is None:
+            formula = f"{outcome_variable} ~ 1 + [{self.treatment_col} ~ {self.instrument_col}]"
+        else: 
+            formula = self.formula
+
         model = IV2SLS.from_formula(formula, data)
         results = model.fit(cov_type='robust')
 
@@ -295,7 +323,7 @@ class ExperimentAnalyzer:
         intercept = results.params["Intercept"]
         relative_uplift = coefficient / intercept
         standard_error = results.std_errors[self.treatment_col]
-        p_value = results.pvalues[self.treatment_col]
+        pvalue = results.pvalues[self.treatment_col]
 
         return {
             "group": data[self.group_col].unique()[0],
@@ -307,7 +335,8 @@ class ExperimentAnalyzer:
             "absolute_uplift": coefficient,
             "relative_uplift": relative_uplift,
             "standard_error": standard_error,
-            "p_value": p_value,
+            "pvalue": pvalue,
+            "stat_significance": 1 if pvalue < self.pvalue_threshold else 0
         }
 
 
@@ -365,9 +394,9 @@ class ExperimentAnalyzer:
             smd_results.append(
                 {
                     "covariate": cov,
-                    "weighted_mean_treated": mean_treated,
-                    "weighted_mean_control": mean_control,
-                    "weighted_smd": smd,
+                    "mean_treated": mean_treated,
+                    "mean_control": mean_control,
+                    "smd": smd,
                     "balance_flag": balance_flag,
                 }
             )
@@ -420,8 +449,8 @@ class ExperimentAnalyzer:
             for group in groups:
                 temp_group = temp_pd[temp_pd[self.group_col] == group].copy()
 
-                group_values = set(temp_group[self.treatment_col].unique())
-                if len(group_values) != 2:
+                groupvalues = set(temp_group[self.treatment_col].unique())
+                if len(groupvalues) != 2:
                     continue
 
                 temp_group = self.impute_missing_values(
@@ -455,9 +484,11 @@ class ExperimentAnalyzer:
                 print(
                     f'::::: Balance {group}: {np.round(balance["balance_flag"].mean(), 2)}'
                 )
+
                 imbalance = balance[balance.balance_flag==0]
                 if imbalance.shape[0] > 0:
-                    print(imbalance)
+                    print('::::: Imbalanced covariates')
+                    print(imbalance[['covariate', 'smd', 'balance_flag']])
 
                 if adjustment == "IPW":
                     temp_group = self.estimate_ipw(
@@ -477,8 +508,8 @@ class ExperimentAnalyzer:
                     )
                     adj_imbalance = adjusted_balance[adjusted_balance.balance_flag==0]
                     if adj_imbalance.shape[0] > 0:
-                        print(adj_imbalance)
-
+                        print('::::: Imbalanced covariates')
+                        print(adj_imbalance[['covariate', 'smd', 'balance_flag']])
 
                 models = {
                     None: self.linear_regression,
@@ -488,18 +519,19 @@ class ExperimentAnalyzer:
 
                 for outcome in self.outcomes:
                     output = models[adjustment](data=temp_group, outcome_variable=outcome)
+                    output['balance'] = np.round(balance['balance_flag'].mean(), 2)
                     output['experimental_unit'] = list(row.asDict().values())
-
                     results.append(output)
 
         self.results = pd.DataFrame(results)
 
 
     def combine_results(self):
-        pooled_results = self.unit_results.groupby(['group', 'outcome']).apply(
+        pooled_results = self.results.groupby(['group', 'outcome']).apply(
             lambda df: pd.Series(self.get_combined_estimate(df))
         ).reset_index()
 
+        pooled_results['stat_significance'] = pooled_results['stat_significance'].astype(int)
         return pooled_results
 
 
@@ -514,6 +546,8 @@ class ExperimentAnalyzer:
             'pooled_absolute_uplift': absolute_estimate,
             'pooled_relative_uplift': relative_estimate,
             'standard_error': pooled_standard_error,
-            'p_value': stats.norm.sf(abs(absolute_estimate/ pooled_standard_error)) * 2
+            'pvalue': stats.norm.sf(abs(absolute_estimate/ pooled_standard_error)) * 2
         }
+        results['stat_significance'] = 1 if results['pvalue'] < self.pvalue_threshold else 0
+        
         return results
