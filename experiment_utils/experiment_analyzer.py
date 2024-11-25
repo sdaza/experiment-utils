@@ -116,10 +116,16 @@ class ExperimentAnalyzer:
 
 
     def impute_missing_values(self, data, num_covariates=None, bin_covariates=None):
+
+
         for cov in num_covariates:
+            if data[cov].isna().all():
+                raise ValueError(f'Column {cov} has only missing values')
             data[cov] = data[cov].fillna(data[cov].mean())
 
         for cov in bin_covariates:
+            if data[cov].isna().all():
+                raise ValueError(f'Column {cov} has only missing values.')
             data[cov] = data[cov].fillna(data[cov].mode()[0])
 
         return data
@@ -481,6 +487,7 @@ class ExperimentAnalyzer:
                 balance = self.calculate_smd(
                     data=temp_group, covariates=final_covariates
                 )
+
                 print(
                     f'::::: Balance {group}: {np.round(balance["balance_flag"].mean(), 2)}'
                 )
@@ -543,6 +550,7 @@ class ExperimentAnalyzer:
 
         results = {
             'treatment_members': data['treatment_members'].sum(),
+            'control_members': data['control_members'].sum(),
             'pooled_absolute_uplift': absolute_estimate,
             'pooled_relative_uplift': relative_estimate,
             'standard_error': pooled_standard_error,
