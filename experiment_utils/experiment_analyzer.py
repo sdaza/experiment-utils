@@ -21,10 +21,10 @@ class ExperimentAnalyzer:
         self,
         data: DataFrame,
         outcomes: List,
-        covariates: List,
         treatment_col: str,
-        group_col: str,
         experiment_identifier: List = ["campaign_key"],
+        group_col: str = None,
+        covariates: List = None,
         target_ipw_effect: str = "ATT",
         adjustment: str = None,
         instrument_col: str = None,
@@ -82,42 +82,49 @@ class ExperimentAnalyzer:
     def __check_input(self):
         # Ensure all required columns are present in the dataframe
 
-        instrument_col = [self.instrument_col] if self.instrument_col is not None else []
+        if self.group_col is None:
+            self.data = self.data.withColumn('group', F.lit('all'))
+            self.group_col = 'group'
+
         required_columns = (
             self.experiment_identifier + 
             [self.treatment_col, self.group_col] + 
             self.outcomes + 
-            self.covariates + 
-            instrument_col
+            (self.covariates if self.covariates is not None else []) + 
+            ([self.instrument_col] if self.instrument_col is not None else [])
         )
-
+        
         missing_columns = set(required_columns) - set(self.data.columns)
         
         if missing_columns:
             raise ValueError(
                 f"The following required columns are missing from the dataframe: {missing_columns}"
             )
+        if self.covariates==None:
+            print("No covariates specified, balance can't be assessed!")
+
         self.data = self.data.select(*required_columns)
 
 
     def __get_binary_covariates(self, data):
-        binary_covariates = []
-        for c in self.covariates:
-            if data[c].nunique() == 2 and data[c].max() == 1:
-                binary_covariates.append(c)
-        return binary_covariates
 
+        binary_covariates = []
+        if self.covariates is not None:
+            for c in self.covariates:
+                if data[c].nunique() == 2 and data[c].max() == 1:
+                    binary_covariates.append(c)
+        return binary_covariates
 
     def __get_numeric_covariates(self, data):
         numeric_covariates = []
-        for c in self.covariates:
-            if data[c].nunique() > 2:
-                numeric_covariates.append(c)
+        if self.covariates is not None: 
+            for c in self.covariates:
+                if data[c].nunique() > 2:
+                    numeric_covariates.append(c)
         return numeric_covariates
 
 
     def impute_missing_values(self, data, num_covariates=None, bin_covariates=None):
-
 
         for cov in num_covariates:
             if data[cov].isna().all():
@@ -429,7 +436,7 @@ class ExperimentAnalyzer:
         A Pandas DataFrame with effects.
         """
 
-        key_experiments = self.data.select(self.experiment_identifier).distinct().collect()
+        key_experiments = self.data.select(*self.experiment_identifier).distinct().collect()
         results = []
         
         if adjustment is None: 
@@ -480,44 +487,50 @@ class ExperimentAnalyzer:
                 ]
                 final_covariates = numeric_covariates + binary_covariates
 
-                temp_group["weights"] = 1
-                temp_group = self.standardize_covariates(
-                    temp_group, final_covariates
-                )
                 
-                balance = self.calculate_smd(
-                    data=temp_group, covariates=final_covariates
-                )
+                if len(final_covariates)==0 & len(self.covariates if self.covariates is not None else [])>0:
+                    print("No valid covariates, balance can't be assessed!")
 
-                print(
-                    f'::::: Balance {group}: {np.round(balance["balance_flag"].mean(), 2)}'
-                )
-
-                imbalance = balance[balance.balance_flag==0]
-                if imbalance.shape[0] > 0:
-                    print('::::: Imbalanced covariates')
-                    print(imbalance[['covariate', 'smd', 'balance_flag']])
-
-                if adjustment == "IPW":
-                    temp_group = self.estimate_ipw(
-                        data=temp_group,
-                        covariates=[f"z_{cov}" for cov in final_covariates],
-                        outcome_variable=self.outcomes[0],
+                if len(final_covariates) > 0:
+                    temp_group["weights"] = 1
+                    temp_group = self.standardize_covariates(
+                        temp_group, final_covariates
                     )
-
-                    adjusted_balance = self.calculate_smd(
-                        data=temp_group,
-                        covariates=final_covariates,
-                        weights_col=self.target_weights[self.target_ipw_effect],
+                    
+                    balance = self.calculate_smd(
+                        data=temp_group, covariates=final_covariates
                     )
 
                     print(
-                        f'::::: Adjusted balance {group}: {np.round(adjusted_balance["balance_flag"].mean(), 2)}'
+                        f'::::: Balance {group}: {np.round(balance["balance_flag"].mean(), 2)}'
                     )
-                    adj_imbalance = adjusted_balance[adjusted_balance.balance_flag==0]
-                    if adj_imbalance.shape[0] > 0:
+
+                    imbalance = balance[balance.balance_flag==0]
+                    if imbalance.shape[0] > 0:
                         print('::::: Imbalanced covariates')
-                        print(adj_imbalance[['covariate', 'smd', 'balance_flag']])
+                        print(imbalance[['covariate', 'smd', 'balance_flag']])
+
+                    if adjustment == "IPW":
+                        temp_group = self.estimate_ipw(
+                            data=temp_group,
+                            covariates=[f"z_{cov}" for cov in final_covariates],
+                            outcome_variable=self.outcomes[0],
+                        )
+
+                        adjusted_balance = self.calculate_smd(
+                            data=temp_group,
+                            covariates=final_covariates,
+                            weights_col=self.target_weights[self.target_ipw_effect],
+                        )
+
+                        print(
+                            f'::::: Adjusted balance {group}: {np.round(adjusted_balance["balance_flag"].mean(), 2)}'
+                        )
+                        adj_imbalance = adjusted_balance[adjusted_balance.balance_flag==0]
+                        if adj_imbalance.shape[0] > 0:
+                            print('::::: Imbalanced covariates')
+                            print(adj_imbalance[['covariate', 'smd', 'balance_flag']])
+    
 
                 models = {
                     None: self.linear_regression,
@@ -530,14 +543,20 @@ class ExperimentAnalyzer:
                     output['adjustment'] = 'No adjustment' if adjustment is None else adjustment
                     if adjustment == 'IPW':
                         output['balance'] = np.round(adjusted_balance['balance_flag'].mean(), 2)
-                    else:
+                    elif len(final_covariates)>0:
                         output['balance'] = np.round(balance['balance_flag'].mean(), 2)
                     output['experiment'] = list(row.asDict().values())
                     results.append(output)
 
-        result_columns = ['experiment', 'group', 'outcome',  'adjustment', 'balance', 
-                          'treatment_members', 'control_members', 'control_value', 'treatment_value', 'absolute_uplift', 'relative_uplift', 'stat_significance', 'standard_error', 
+        result_columns = ['experiment', 'group', 'outcome',  'adjustment',
+                          'treatment_members', 'control_members', 'control_value', 
+                          'treatment_value', 'absolute_uplift', 'relative_uplift', 
+                          'stat_significance', 'standard_error', 
                           'pvalue']
+
+        if len(final_covariates) > 0:
+            index_to_insert = result_columns.index('adjustment') + 1
+            result_columns.insert(index_to_insert, 'balance')
 
         self.results = pd.DataFrame(results)[result_columns]
 
@@ -558,13 +577,17 @@ class ExperimentAnalyzer:
         A Pandas DataFrame with combined results
         """
 
+
         pooled_results = self.results.groupby(grouping_cols).apply(
             lambda df: pd.Series(self.__get_combined_estimate(df))
         ).reset_index()
 
-        result_columns = grouping_cols + ['average_balance', 'treatment_members', 'control_members', 
+        result_columns = grouping_cols + ['treatment_members', 'control_members', 
                                           'combined_absolute_uplift', 'combined_relative_uplift', 
                                           'stat_significance', 'standard_error', 'pvalue']
+        if 'balance' in self.results.columns:
+            index_to_insert = len(grouping_cols)
+            result_columns.insert(index_to_insert, 'average_balance')
         pooled_results['stat_significance'] = pooled_results['stat_significance'].astype(int)
         return pooled_results[result_columns]
 
@@ -576,7 +599,6 @@ class ExperimentAnalyzer:
         relative_estimate = np.sum(weights * data['relative_uplift']) / np.sum(weights)
 
         results = {
-            'average_balance': data['balance'].mean(),
             'treatment_members': data['treatment_members'].sum(),
             'control_members': data['control_members'].sum(),
             'combined_absolute_uplift': absolute_estimate,
@@ -584,6 +606,8 @@ class ExperimentAnalyzer:
             'standard_error': pooled_standard_error,
             'pvalue': stats.norm.sf(abs(absolute_estimate/ pooled_standard_error)) * 2
         }
+        if 'balance' in data.columns:
+            results['average_balance'] = data['balance'].mean()
         results['stat_significance'] = 1 if results['pvalue'] < self.pvalue_threshold else 0
     
         return results
