@@ -24,7 +24,7 @@ class ExperimentAnalyzer:
         covariates: List,
         treatment_col: str,
         group_col: str,
-        experimental_units: List = ["campaign_key"],
+        experiment_identifier: List = ["campaign_key"],
         target_ipw_effect: str = "ATT",
         adjustment: str = None,
         instrument_col: str = None,
@@ -47,8 +47,8 @@ class ExperimentAnalyzer:
             Column name for the treatment variable
         group_col : str
             Column name for the group identifier
-        experimental_units : List
-            List of experimental units, by default ["campaign_key"]
+        experiment_identifier : List
+            List of columns to identify an experiment, by default ["campaign_key"]
         target_ipw_effect : str, optional
             Target IPW effect (ATT, ATE, ATC), by default "ATT"
         adjustment : str, optional
@@ -66,7 +66,7 @@ class ExperimentAnalyzer:
         self.covariates = covariates
         self.treatment_col = treatment_col
         self.group_col = group_col
-        self.experimental_units = experimental_units
+        self.experiment_identifier = experiment_identifier
         self.target_ipw_effect = target_ipw_effect
         self.adjustment = adjustment
         self.instrument_col = instrument_col
@@ -84,7 +84,7 @@ class ExperimentAnalyzer:
 
         instrument_col = [self.instrument_col] if self.instrument_col is not None else []
         required_columns = (
-            self.experimental_units + 
+            self.experiment_identifier + 
             [self.treatment_col, self.group_col] + 
             self.outcomes + 
             self.covariates + 
@@ -429,7 +429,7 @@ class ExperimentAnalyzer:
         A Pandas DataFrame with effects.
         """
 
-        key_experiments = self.data.select(self.experimental_units).distinct().collect()
+        key_experiments = self.data.select(self.experiment_identifier).distinct().collect()
         results = []
         
         if adjustment is None: 
@@ -443,7 +443,7 @@ class ExperimentAnalyzer:
                 lambda a, b: a & b,
                 [
                     (F.col(unit) == row[unit])
-                    for unit in self.experimental_units
+                    for unit in self.experiment_identifier
                 ],
             )
 
@@ -529,13 +529,13 @@ class ExperimentAnalyzer:
                     output = models[adjustment](data=temp_group, outcome_variable=outcome)
                     output['adjustment'] = 'No adjustment' if adjustment is None else adjustment
                     if adjustment == 'IPW':
-                        output['balance'] = np.round(adj_balance['balance_flag'].mean(), 2)
+                        output['balance'] = np.round(adjusted_balance['balance_flag'].mean(), 2)
                     else:
                         output['balance'] = np.round(balance['balance_flag'].mean(), 2)
-                    output['experimental_unit'] = list(row.asDict().values())
+                    output['experiment'] = list(row.asDict().values())
                     results.append(output)
 
-        result_columns = ['experimental_unit', 'group', 'outcome',  'adjustment', 'balance', 
+        result_columns = ['experiment', 'group', 'outcome',  'adjustment', 'balance', 
                           'treatment_members', 'control_members', 'control_value', 'treatment_value', 'absolute_uplift', 'relative_uplift', 'stat_significance', 'standard_error', 
                           'pvalue']
 
@@ -544,7 +544,7 @@ class ExperimentAnalyzer:
 
     def combine_results(self, grouping_cols=['group', 'outcome']):
         """
-        Combine results across all experimental units using fixed effects meta-analysis.
+        Combine results across experiments using fixed effects meta-analysis.
 
         Parameters
         ----------
