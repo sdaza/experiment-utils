@@ -527,13 +527,17 @@ class ExperimentAnalyzer:
 
                 for outcome in self.outcomes:
                     output = models[adjustment](data=temp_group, outcome_variable=outcome)
-                    output['balance'] = np.round(balance['balance_flag'].mean(), 2)
+                    output['adjustment'] = 'No adjustment' if adjustment is None else adjustment
+                    if adjustment == 'IPW':
+                        output['balance'] = np.round(adj_balance['balance_flag'].mean(), 2)
+                    else:
+                        output['balance'] = np.round(balance['balance_flag'].mean(), 2)
                     output['experimental_unit'] = list(row.asDict().values())
                     results.append(output)
 
-        result_columns = ['experimental_unit', 'group', 'outcome', 'balance', 'treatment_members', 'control_members', 'control_value', 
-                           'treatment_value', 'absolute_uplift', 'relative_uplift', 'stat_significance', 'standard_error', 
-                           'pvalue']
+        result_columns = ['experimental_unit', 'group', 'outcome',  'adjustment', 'balance', 
+                          'treatment_members', 'control_members', 'control_value', 'treatment_value', 'absolute_uplift', 'relative_uplift', 'stat_significance', 'standard_error', 
+                          'pvalue']
 
         self.results = pd.DataFrame(results)[result_columns]
 
