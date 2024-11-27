@@ -12,8 +12,15 @@ from functools import reduce
 from dowhy import CausalModel
 from linearmodels.iv import IV2SLS
 import statsmodels.formula.api as smf
-from statsmodels.stats.meta_analysis import combine_effects
 from scipy import stats
+import logging
+
+# advance methods for meta-analysis
+# from statsmodels.stats.meta_analysis import combine_effects
+
+# set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class ExperimentAnalyzer:
@@ -97,11 +104,11 @@ class ExperimentAnalyzer:
         missing_columns = set(required_columns) - set(self.data.columns)
         
         if missing_columns:
-            raise ValueError(
+            self.__log_and_raise_error(
                 f"The following required columns are missing from the dataframe: {missing_columns}"
             )
         if self.covariates==None:
-            print("No covariates specified, balance can't be assessed!")
+            logger.warning("No covariates specified, balance can't be assessed!")
 
         self.data = self.data.select(*required_columns)
 
@@ -128,12 +135,12 @@ class ExperimentAnalyzer:
 
         for cov in num_covariates:
             if data[cov].isna().all():
-                raise ValueError(f'Column {cov} has only missing values')
+                self.__log_and_raise_error(f'Column {cov} has only missing values')
             data[cov] = data[cov].fillna(data[cov].mean())
 
         for cov in bin_covariates:
             if data[cov].isna().all():
-                raise ValueError(f'Column {cov} has only missing values.')
+                self.__log_and_raise_error(f'Column {cov} has only missing values.')
             data[cov] = data[cov].fillna(data[cov].mode()[0])
 
         return data
@@ -323,7 +330,7 @@ class ExperimentAnalyzer:
         """
 
         if not self.instrument_col:
-            raise ValueError("Instrument column must be specified for IV adjustment")
+            self.__log_and_raise_error("Instrument column must be specified for IV adjustment")
 
         if formula is None:
             formula = f"{outcome_variable} ~ 1 + [{self.treatment_col} ~ {self.instrument_col}]"
@@ -445,7 +452,7 @@ class ExperimentAnalyzer:
         # iterate over each combination of experimental units
         for row in key_experiments:
 
-            print(f'Processing: {row}')
+            logger.warning(f'Processing: {row}')
             filter_condition = reduce(
                 lambda a, b: a & b,
                 [
@@ -489,7 +496,7 @@ class ExperimentAnalyzer:
 
                 
                 if len(final_covariates)==0 & len(self.covariates if self.covariates is not None else [])>0:
-                    print("No valid covariates, balance can't be assessed!")
+                    logger.warning("No valid covariates, balance can't be assessed!")
 
                 if len(final_covariates) > 0:
                     temp_group["weights"] = 1
@@ -501,14 +508,14 @@ class ExperimentAnalyzer:
                         data=temp_group, covariates=final_covariates
                     )
 
-                    print(
+                    logger.warning(
                         f'::::: Balance {group}: {np.round(balance["balance_flag"].mean(), 2)}'
                     )
 
                     imbalance = balance[balance.balance_flag==0]
                     if imbalance.shape[0] > 0:
-                        print('::::: Imbalanced covariates')
-                        print(imbalance[['covariate', 'smd', 'balance_flag']])
+                        logger.warning('::::: Imbalanced covariates')
+                        logger.warning(imbalance[['covariate', 'smd', 'balance_flag']])
 
                     if adjustment == "IPW":
                         temp_group = self.estimate_ipw(
@@ -523,13 +530,13 @@ class ExperimentAnalyzer:
                             weights_col=self.target_weights[self.target_ipw_effect],
                         )
 
-                        print(
+                        logger.warning(
                             f'::::: Adjusted balance {group}: {np.round(adjusted_balance["balance_flag"].mean(), 2)}'
                         )
                         adj_imbalance = adjusted_balance[adjusted_balance.balance_flag==0]
                         if adj_imbalance.shape[0] > 0:
-                            print('::::: Imbalanced covariates')
-                            print(adj_imbalance[['covariate', 'smd', 'balance_flag']])
+                            logger.warning('::::: Imbalanced covariates')
+                            logger.warning(adj_imbalance[['covariate', 'smd', 'balance_flag']])
     
 
                 models = {
@@ -611,3 +618,15 @@ class ExperimentAnalyzer:
         results['stat_significance'] = 1 if results['pvalue'] < self.pvalue_threshold else 0
     
         return results
+    
+
+    def __log_and_raise_error(self, message, exception_type=ValueError):
+        """
+        Logs an error message and raises an exception of the specified type.
+
+        :param message: The error message to log and raise.
+        :param exception_type: The type of exception to raise (default is ValueError).
+        """
+        
+        logger.error(message)
+        raise exception_type(message)
