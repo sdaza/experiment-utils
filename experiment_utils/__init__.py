@@ -1,5 +1,5 @@
 """
-Experiment and causal analysis utils
+Experiment design and analysis utils
 """
 
 from .experiment_analyzer import ExperimentAnalyzer
