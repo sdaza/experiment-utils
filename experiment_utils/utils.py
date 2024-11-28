@@ -3,6 +3,7 @@ Collection of helper methods. These should be fully generic and make no
 assumptions about the format of input data.
 """
 
+import logging
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql import types as T
@@ -10,18 +11,13 @@ from pyspark.sql.window import Window
 from typing import Iterable
 
 
-_spark_ctx = None
+def turn_off_package_logger(package: str):
+    to_logger = logging.getLogger(package)
+    to_logger.setLevel(logging.ERROR)
+    to_logger.handlers = [logging.NullHandler()]
 
 
-def setup_logging(turn_off_package: str = None):
-    
-    # suppress logs
-    if turn_off_package is not None:
-        to_logger = logging.getLogger(turn_off_package)
-        to_logger.setLevel(logging.ERROR)
-        to_logger.handlers = [logging.NullHandler()]
-
-    # set up the main logger
+def setup_logger():
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
 
@@ -36,28 +32,16 @@ def setup_logging(turn_off_package: str = None):
     return logger
 
 
-def log_and_raise_error(message, exception_type=ValueError):
+def log_and_raise_error(logger, message, exception_type=ValueError):
     """"
     Logs an error message and raises an exception of the specified type.
 
     :param message: The error message to log and raise.
     :param exception_type: The type of exception to raise (default is ValueError).
     """
-    if logger is None:
-        logger = setup_logging()
 
     logger.error(message)
     raise exception_type(message)
-
-
-def get_spark():
-    global _spark_ctx
-    if _spark_ctx is None:
-        _spark_ctx = (
-            SparkSession.builder.master('local').appName('pipeline')
-            .getOrCreate()
-        )
-    return(_spark_ctx)
 
 
 def melt_df(

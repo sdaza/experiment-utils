@@ -14,9 +14,7 @@ import scipy.stats as stats
 import statsmodels.api as sm
 from statsmodels.stats.proportion import proportions_ztest as prop_test
 from statsmodels.stats.weightstats import ttest_ind as ttest
-from utils import setup_logging, log_and_raise_error
-
-logger = setup_logging()
+from .utils import setup_logger, log_and_raise_error
 
 
 class PowerSim:
@@ -58,6 +56,8 @@ class PowerSim:
         self.alpha = alpha
         self.correction = correction
         self.fdr_method = fdr_method
+        self.logger = setup_logger()
+    
     
     # simulate data
     def __run_experiment(self, baseline=[1.0], sample_size=[100], effect=[0.10], 
@@ -86,27 +86,27 @@ class PowerSim:
         # initial checks
         if len(effect) != self.variants:
             if len(effect)>1:
-                log_and_raise_error('Effects should be same length as the number of self.variants or length 1!')
+                log_and_raise_error(self.logger, 'Effects should be same length as the number of self.variants or length 1!')
             effect = list(itertools.repeat(effect[0], self.variants))
 
         if len(compliance) != self.variants:
             if len(compliance)>1:
-                log_and_raise_error('Compliance rates should be same length as the number of self.variants or length 1!')
+                log_and_raise_error(self.logger, 'Compliance rates should be same length as the number of self.variants or length 1!')
             compliance = list(itertools.repeat(compliance[0], self.variants))
         
         if len(standard_deviation) != self.variants+1:
             if len(standard_deviation)>1:
-                log_and_raise_error('Standard deviations should be same length as the number of self.variants+1 or length 1!')
+                log_and_raise_error(self.logger, 'Standard deviations should be same length as the number of self.variants+1 or length 1!')
             standard_deviation = list(itertools.repeat(standard_deviation[0], self.variants+1))
         
         if len(sample_size) != self.variants+1:
             if len(sample_size)>1:
-                log_and_raise_error('N should be same length as the number of self.variants+1 or length 1!')
+                log_and_raise_error(self.logger, 'N should be same length as the number of self.variants+1 or length 1!')
             sample_size = list(itertools.repeat(sample_size[0], self.variants+1))
 
         if len(baseline) != self.variants+1:
             if len(baseline)>1:
-                log_and_raise_error('Baseline values should be same length as the number of self.variants+1 or length 1!')
+                log_and_raise_error(self.logger, 'Baseline values should be same length as the number of self.variants+1 or length 1!')
             baseline = list(itertools.repeat(baseline[0], self.variants+1))
 
         re = list(range(self.variants))

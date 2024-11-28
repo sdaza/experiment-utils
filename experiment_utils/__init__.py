@@ -2,5 +2,6 @@
 Experiment design and analysis utils
 """
 
-from .experiment_analyzer import ExperimentAnalyzer
-from .power_sim import PowerSim
+from .experiment_analyzer import *
+from .power_sim import *
+from .utils import *

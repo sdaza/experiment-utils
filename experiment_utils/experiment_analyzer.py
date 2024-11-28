@@ -5,7 +5,7 @@ Class ExperimentAnlyzer to analyze and design experiments
 
 from pyspark.sql import functions as F
 from pyspark.sql import DataFrame
-from utils import setup_logging, log_and_raise_error
+from .utils import setup_logger, turn_off_package_logger, log_and_raise_error
 from spark_instance import *
 import pandas as pd
 import numpy as np
@@ -16,8 +16,7 @@ from linearmodels.iv import IV2SLS
 import statsmodels.formula.api as smf
 from scipy import stats
 
-logger = setup_logging(turn_off_package='dowhy')
-
+turn_off_package_logger('dowhy')
 
 class ExperimentAnalyzer:
     def __init__(
@@ -31,7 +30,6 @@ class ExperimentAnalyzer:
         target_ipw_effect: str = "ATT",
         adjustment: str = None,
         instrument_col: str = None,
-        formula: str = None,
         alpha: float = 0.05
     ):
 
@@ -64,6 +62,7 @@ class ExperimentAnalyzer:
             Significance level, by default 0.05
         """
         
+        self.logger = setup_logger()
         self.data = data
         self.outcomes = outcomes
         self.covariates = covariates
@@ -83,8 +82,7 @@ class ExperimentAnalyzer:
 
 
     def __check_input(self):
-        # Ensure all required columns are present in the dataframe
-
+        # ensure all required columns are present in the dataframe
         if self.group_col is None:
             self.data = self.data.withColumn('group', F.lit('all'))
             self.group_col = 'group'
@@ -100,11 +98,11 @@ class ExperimentAnalyzer:
         missing_columns = set(required_columns) - set(self.data.columns)
         
         if missing_columns:
-            log_and_raise_error(
+            log_and_raise_error(self.logger,
                 f"The following required columns are missing from the dataframe: {missing_columns}"
             )
         if self.covariates==None:
-            logger.warning("No covariates specified, balance can't be assessed!")
+            self.logger.warning("No covariates specified, balance can't be assessed!")
 
         self.data = self.data.select(*required_columns)
 
@@ -131,12 +129,12 @@ class ExperimentAnalyzer:
 
         for cov in num_covariates:
             if data[cov].isna().all():
-                log_and_raise_error(f'Column {cov} has only missing values')
+                log_and_raise_error(self.logger, f'Column {cov} has only missing values')
             data[cov] = data[cov].fillna(data[cov].mean())
 
         for cov in bin_covariates:
             if data[cov].isna().all():
-                log_and_raise_error(f'Column {cov} has only missing values.')
+                log_and_raise_error(self.logger, f'Column {cov} has only missing values.')
             data[cov] = data[cov].fillna(data[cov].mode()[0])
 
         return data
@@ -164,7 +162,7 @@ class ExperimentAnalyzer:
         return data
 
 
-    def linear_regression(self, data: pd.DataFrame, outcome_variable: str, formula: str = None) -> Dict:
+    def linear_regression(self, data: pd.DataFrame, outcome_variable: str) -> Dict:
         """
         Runs a linear regression of the outcome variable on the treatment variable.
 
@@ -174,8 +172,6 @@ class ExperimentAnalyzer:
             Data to run the regression on
         outcome_variable : str
             Name of the outcome variable
-        formula : str, optional
-            Regression formula, by default None
 
         Returns
         -------
@@ -185,7 +181,6 @@ class ExperimentAnalyzer:
         
 
         formula = f"{outcome_variable} ~ {self.treatment_col}"
-        self.formula = formula
         model = smf.ols(formula, data=data)
         results = model.fit(cov_type="HC3")
 
@@ -210,7 +205,7 @@ class ExperimentAnalyzer:
         }
 
 
-    def weighted_least_squares(self, data: pd.DataFrame, outcome_variable: str, formula: str = None) -> Dict:
+    def weighted_least_squares(self, data: pd.DataFrame, outcome_variable: str) -> Dict:
         """
         Runs a weighted least squares regression of the outcome variable on the treatment variable.
 
@@ -220,19 +215,15 @@ class ExperimentAnalyzer:
             Data to run the regression on
         outcome_variable : str
             Name of the outcome variable
-        formula : str, optional
-            Regression formula, by default None
+
         Returns
         -------
         Dict
             Regression results
         """
 
-        if formula is None:
-            formula = f"{outcome_variable} ~ 1 + {self.treatment_col}"
-        else: 
-            formula = self.formula
-
+ 
+        formula = f"{outcome_variable} ~ 1 + {self.treatment_col}"
         model = smf.wls(
             formula,
             data=data,
@@ -306,7 +297,7 @@ class ExperimentAnalyzer:
         return data
 
 
-    def iv_regression(self, data: pd.DataFrame, outcome_variable: str, formula: str = None) -> Dict:
+    def iv_regression(self, data: pd.DataFrame, outcome_variable: str) -> Dict:
         """
         Perform instrumental variable regression of the outcome variable on the treatment variable.
 
@@ -316,8 +307,6 @@ class ExperimentAnalyzer:
             Data to run the regression on
         outcome_variable : str
             Name of the outcome variable
-        formula : str, optional
-            Regression formula, by default None
 
         Returns
         -------
@@ -326,13 +315,9 @@ class ExperimentAnalyzer:
         """
 
         if not self.instrument_col:
-            log_and_raise_error("Instrument column must be specified for IV adjustment")
+            log_and_raise_error(self.logger, "Instrument column must be specified for IV adjustment")
 
-        if formula is None:
-            formula = f"{outcome_variable} ~ 1 + [{self.treatment_col} ~ {self.instrument_col}]"
-        else: 
-            formula = self.formula
-
+        formula = f"{outcome_variable} ~ 1 + [{self.treatment_col} ~ {self.instrument_col}]"
         model = IV2SLS.from_formula(formula, data)
         results = model.fit(cov_type='robust')
 
@@ -448,7 +433,7 @@ class ExperimentAnalyzer:
         # iterate over each combination of experimental units
         for row in key_experiments:
 
-            logger.warning(f'Processing: {row}')
+            self.logger.warning(f'Processing: {row}')
             filter_condition = reduce(
                 lambda a, b: a & b,
                 [
@@ -468,10 +453,10 @@ class ExperimentAnalyzer:
 
                 groupvalues = set(temp_group[self.treatment_col].unique())
                 if len(groupvalues) != 2:
-                    logger.warning(f'Skipping group {group} as it is not a valid treatment-control group')
+                    self.logger.warning(f'Skipping group {group} as it is not a valid treatment-control group')
                     continue
                 if not (0 in groupvalues and 1 in groupvalues):
-                    log_and_raise_error(f'The treatment column {self.treatment_col} must be 0 and 1')
+                    log_and_raise_error(self.logger, f'The treatment column {self.treatment_col} must be 0 and 1')
 
                 temp_group = self.impute_missing_values(
                     data=temp_group,
@@ -495,7 +480,7 @@ class ExperimentAnalyzer:
 
                 
                 if len(final_covariates)==0 & len(self.covariates if self.covariates is not None else [])>0:
-                    logger.warning("No valid covariates, balance can't be assessed!")
+                    self.logger.warning("No valid covariates, balance can't be assessed!")
 
                 if len(final_covariates) > 0:
                     temp_group["weights"] = 1
@@ -507,13 +492,13 @@ class ExperimentAnalyzer:
                         data=temp_group, covariates=final_covariates
                     )
 
-                    logger.warning(
+                    self.logger.warning(
                         f'::::: Balance group "{group}": {np.round(balance["balance_flag"].mean(), 2)}'
                     )
 
                     imbalance = balance[balance.balance_flag==0]
                     if imbalance.shape[0] > 0:
-                        logger.warning('::::: Imbalanced covariates')
+                        self.logger.warning('::::: Imbalanced covariates')
                         print(imbalance[['covariate', 'smd', 'balance_flag']])
 
                     if adjustment == "IPW":
@@ -530,12 +515,12 @@ class ExperimentAnalyzer:
                             weights_col=self.target_weights[self.target_ipw_effect],
                         )
 
-                        logger.warning(
+                        self.logger.warning(
                             f'::::: Adjusted balance group "{group}": {np.round(adjusted_balance["balance_flag"].mean(), 2)}'
                         )
                         adj_imbalance = adjusted_balance[adjusted_balance.balance_flag==0]
                         if adj_imbalance.shape[0] > 0:
-                            logger.warning('::::: Imbalanced covariates')
+                            self.logger.warning('::::: Imbalanced covariates')
                             print(adj_imbalance[['covariate', 'smd', 'balance_flag']])
     
 
@@ -642,7 +627,7 @@ class ExperimentAnalyzer:
 
         # check we are not combining across grouping cols, there should be one record per combination
         if any(data.groupby(grouping_cols+['group']) .size() > 1):
-            log_and_raise_error(f'Cannot combine results across {grouping_cols}, `combine_results` with meta-analysis first!')
+            log_and_raise_error(self.logger, f'Cannot combine results across {grouping_cols}, `combine_results` with meta-analysis first!')
 
         results = data.groupby(grouping_cols).apply(self.__compute_weighted_effect).reset_index()
 
