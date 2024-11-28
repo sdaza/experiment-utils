@@ -2,10 +2,10 @@ from setuptools import setup, find_packages
 
 setup(
     name='experiment-utils',
-    version='0.1.0',
+    version='0.0.1',
     author='Sebastian Daza',
     author_email='sebastian.daza@gmail.com',
-    description='Utils ofor experimental design and analysis',
+    description='Utils for experimental design and analysis',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     url='https://github.com/sdaza/experiment-utils.git',
