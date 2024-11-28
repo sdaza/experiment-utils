@@ -2,9 +2,10 @@
 Class ExperimentAnlyzer to analyze and design experiments
 """
 
+import logging
 from pyspark.sql import functions as F
 from pyspark.sql import DataFrame
-from spark_instance import *
+from spark_instance import *  # Ensure to import only what's necessary
 import pandas as pd
 import numpy as np
 from typing import Dict, List
@@ -13,14 +14,29 @@ from dowhy import CausalModel
 from linearmodels.iv import IV2SLS
 import statsmodels.formula.api as smf
 from scipy import stats
-import logging
 
-# advance methods for meta-analysis
-# from statsmodels.stats.meta_analysis import combine_effects
 
-# set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+def setup_logging():
+    # suppress logs from dowhy
+    dw_logger = logging.getLogger('dowhy')
+    dw_logger.setLevel(logging.ERROR)
+    dw_logger.handlers = [logging.NullHandler()]
+
+    # set up the main logger
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+
+    # clear existing handlers
+    if not logger.hasHandlers():
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+
+    return logger
+
+logger = setup_logging()
 
 
 class ExperimentAnalyzer:
@@ -36,7 +52,7 @@ class ExperimentAnalyzer:
         adjustment: str = None,
         instrument_col: str = None,
         formula: str = None,
-        pvalue_threshold: float = 0.05
+        alpha: float = 0.05
     ):
 
         """
@@ -64,8 +80,8 @@ class ExperimentAnalyzer:
             Column name for the instrument variable, by default None
         formula : str, optional
             Formula for the estimated regression, by default None
-        pvalue_threshold : float, optional
-            P-value threshold for statistical significance, by default 0.05
+        alpha : float, optional
+            Significance level, by default 0.05
         """
         
         self.data = data
@@ -79,7 +95,7 @@ class ExperimentAnalyzer:
         self.instrument_col = instrument_col
         self.__check_input()
         self.formula = None
-        self.pvalue_threshold = pvalue_threshold
+        self.alpha = alpha
 
         self.target_weights = {"ATT": "tips_stabilized_weight", 
                                "ATE": "ipw_stabilized_weight", 
@@ -162,6 +178,7 @@ class ExperimentAnalyzer:
         pd.DataFrame
             Data with standardized covariates
         """
+
         for covariate in covariates:
             data[f"z_{covariate}"] = (data[covariate] - data[covariate].mean()) / data[covariate].std()
         return data
@@ -194,22 +211,22 @@ class ExperimentAnalyzer:
 
         coefficient = results.params[self.treatment_col]
         intercept = results.params["Intercept"]
-        relative_uplift = coefficient / intercept
+        relative_effect = coefficient / intercept
         standard_error = results.bse[self.treatment_col]
         pvalue = results.pvalues[self.treatment_col]
 
         return {
             "group": data[self.group_col].unique()[0],
             "outcome": outcome_variable,
-            "treatment_members": data[self.treatment_col].sum(),
-            "control_members": data[self.treatment_col].count() - data[self.treatment_col].sum(),
+            "treated_units": data[self.treatment_col].sum(),
+            "control_units": data[self.treatment_col].count() - data[self.treatment_col].sum(),
             "control_value": intercept,
             "treatment_value": intercept+coefficient,
-            "absolute_uplift": coefficient,
-            "relative_uplift": relative_uplift,
+            "absolute_effect": coefficient,
+            "relative_effect": relative_effect,
             "standard_error": standard_error,
             "pvalue": pvalue,
-            "stat_significance": 1 if pvalue < self.pvalue_threshold else 0
+            "stat_significance": 1 if pvalue < self.alpha else 0
         }
 
 
@@ -245,22 +262,22 @@ class ExperimentAnalyzer:
 
         coefficient = results.params[self.treatment_col]
         intercept = results.params["Intercept"]
-        relative_uplift = coefficient / intercept
+        relative_effect = coefficient / intercept
         standard_error = results.bse[self.treatment_col]
         pvalue = results.pvalues[self.treatment_col]
 
         return {
             "group": data[self.group_col].unique()[0],
             "outcome": outcome_variable,
-            "treatment_members": data[self.treatment_col].sum(),
-            "control_members": data[self.treatment_col].count() - data[self.treatment_col].sum(),
+            "treated_units": data[self.treatment_col].sum(),
+            "control_units": data[self.treatment_col].count() - data[self.treatment_col].sum(),
             "control_value": intercept,
             "treatment_value": intercept+coefficient,
-            "absolute_uplift": coefficient,
-            "relative_uplift": relative_uplift,
+            "absolute_effect": coefficient,
+            "relative_effect": relative_effect,
             "standard_error": standard_error,
             "pvalue": pvalue,
-            "stat_significance": 1 if pvalue < self.pvalue_threshold else 0
+            "stat_significance": 1 if pvalue < self.alpha else 0
         }
 
 
@@ -281,8 +298,7 @@ class ExperimentAnalyzer:
         -------
         pd.DataFrame
             Data with the estimated IPW
-        """
-            
+        """        
         causal_model = CausalModel(
             data=data,
             treatment=self.treatment_col,
@@ -342,22 +358,22 @@ class ExperimentAnalyzer:
 
         coefficient = results.params[self.treatment_col]
         intercept = results.params["Intercept"]
-        relative_uplift = coefficient / intercept
+        relative_effect = coefficient / intercept
         standard_error = results.std_errors[self.treatment_col]
         pvalue = results.pvalues[self.treatment_col]
 
         return {
             "group": data[self.group_col].unique()[0],
             "outcome": outcome_variable,
-            "treatment_members": data[self.treatment_col].sum(),
-            "control_members": data[self.treatment_col].count() - data[self.treatment_col].sum(),
+            "treated_units": data[self.treatment_col].sum(),
+            "control_units": data[self.treatment_col].count() - data[self.treatment_col].sum(),
             "control_value": intercept,
             "treatment_value": intercept+coefficient,
-            "absolute_uplift": coefficient,
-            "relative_uplift": relative_uplift,
+            "absolute_effect": coefficient,
+            "relative_effect": relative_effect,
             "standard_error": standard_error,
             "pvalue": pvalue,
-            "stat_significance": 1 if pvalue < self.pvalue_threshold else 0
+            "stat_significance": 1 if pvalue < self.alpha else 0
         }
 
 
@@ -427,9 +443,9 @@ class ExperimentAnalyzer:
         return smd_df
 
 
-    def get_uplifts(self, min_binary_count=100, adjustment=None):
+    def get_effects(self, min_binary_count=100, adjustment=None):
         """
-        Calculate uplifts (causal effects), given the data and experimental units.
+        Calculate effects (uplifts), given the data and experimental units.
 
         Parameters
         ----------
@@ -472,7 +488,10 @@ class ExperimentAnalyzer:
 
                 groupvalues = set(temp_group[self.treatment_col].unique())
                 if len(groupvalues) != 2:
+                    logger.warning(f'Skipping group {group} as it is not a valid treatment-control group')
                     continue
+                if not (0 in groupvalues and 1 in groupvalues):
+                    self.__log_and_raise_error(f'The treatment column {self.treatment_col} must be 0 and 1')
 
                 temp_group = self.impute_missing_values(
                     data=temp_group,
@@ -509,15 +528,16 @@ class ExperimentAnalyzer:
                     )
 
                     logger.warning(
-                        f'::::: Balance {group}: {np.round(balance["balance_flag"].mean(), 2)}'
+                        f'::::: Balance group "{group}": {np.round(balance["balance_flag"].mean(), 2)}'
                     )
 
                     imbalance = balance[balance.balance_flag==0]
                     if imbalance.shape[0] > 0:
                         logger.warning('::::: Imbalanced covariates')
-                        logger.warning(imbalance[['covariate', 'smd', 'balance_flag']])
+                        print(imbalance[['covariate', 'smd', 'balance_flag']])
 
                     if adjustment == "IPW":
+                        temp_group = self.standardize_covariates(temp_group, final_covariates)
                         temp_group = self.estimate_ipw(
                             data=temp_group,
                             covariates=[f"z_{cov}" for cov in final_covariates],
@@ -531,12 +551,12 @@ class ExperimentAnalyzer:
                         )
 
                         logger.warning(
-                            f'::::: Adjusted balance {group}: {np.round(adjusted_balance["balance_flag"].mean(), 2)}'
+                            f'::::: Adjusted balance group "{group}": {np.round(adjusted_balance["balance_flag"].mean(), 2)}'
                         )
                         adj_imbalance = adjusted_balance[adjusted_balance.balance_flag==0]
                         if adj_imbalance.shape[0] > 0:
                             logger.warning('::::: Imbalanced covariates')
-                            logger.warning(adj_imbalance[['covariate', 'smd', 'balance_flag']])
+                            print(adj_imbalance[['covariate', 'smd', 'balance_flag']])
     
 
                 models = {
@@ -552,12 +572,12 @@ class ExperimentAnalyzer:
                         output['balance'] = np.round(adjusted_balance['balance_flag'].mean(), 2)
                     elif len(final_covariates)>0:
                         output['balance'] = np.round(balance['balance_flag'].mean(), 2)
-                    output['experiment'] = list(row.asDict().values())
+                    output['experiment'] = tuple(row.asDict().values())
                     results.append(output)
 
         result_columns = ['experiment', 'group', 'outcome',  'adjustment',
-                          'treatment_members', 'control_members', 'control_value', 
-                          'treatment_value', 'absolute_uplift', 'relative_uplift', 
+                          'treated_units', 'control_units', 'control_value', 
+                          'treatment_value', 'absolute_effect', 'relative_effect', 
                           'stat_significance', 'standard_error', 
                           'pvalue']
 
@@ -586,39 +606,99 @@ class ExperimentAnalyzer:
 
 
         pooled_results = self.results.groupby(grouping_cols).apply(
-            lambda df: pd.Series(self.__get_combined_estimate(df))
+            lambda df: pd.Series(self.__get_fixed_meta_analysis_estimate(df))
         ).reset_index()
 
-        result_columns = grouping_cols + ['treatment_members', 'control_members', 
-                                          'combined_absolute_uplift', 'combined_relative_uplift', 
-                                          'stat_significance', 'standard_error', 'pvalue']
+        result_columns = ['experiment'] +  grouping_cols + ['treated_units', 'control_units', 
+                        'absolute_effect', 'relative_effect', 
+                        'stat_significance', 'standard_error', 'pvalue']
         if 'balance' in self.results.columns:
             index_to_insert = len(grouping_cols)
-            result_columns.insert(index_to_insert, 'average_balance')
+            result_columns.insert(index_to_insert+1, 'balance')
         pooled_results['stat_significance'] = pooled_results['stat_significance'].astype(int)
         return pooled_results[result_columns]
 
 
-    def __get_combined_estimate(self, data):
+    def __get_fixed_meta_analysis_estimate(self, data):
         weights = 1 / (data['standard_error'] ** 2)
-        absolute_estimate = np.sum(weights * data['absolute_uplift']) / np.sum(weights)
+        absolute_estimate = np.sum(weights * data['absolute_effect']) / np.sum(weights)
         pooled_standard_error = np.sqrt(1 / np.sum(weights))
-        relative_estimate = np.sum(weights * data['relative_uplift']) / np.sum(weights)
+        relative_estimate = np.sum(weights * data['relative_effect']) / np.sum(weights)
 
         results = {
-            'treatment_members': data['treatment_members'].sum(),
-            'control_members': data['control_members'].sum(),
-            'combined_absolute_uplift': absolute_estimate,
-            'combined_relative_uplift': relative_estimate,
+            'experiment': 'combined', 
+            'treated_units': data['treated_units'].sum(),
+            'control_units': data['control_units'].sum(),
+            'absolute_effect': absolute_estimate,
+            'relative_effect': relative_estimate,
             'standard_error': pooled_standard_error,
             'pvalue': stats.norm.sf(abs(absolute_estimate/ pooled_standard_error)) * 2
         }
+
         if 'balance' in data.columns:
-            results['average_balance'] = data['balance'].mean()
-        results['stat_significance'] = 1 if results['pvalue'] < self.pvalue_threshold else 0
+            results['balance'] = data['balance'].mean()
+        results['stat_significance'] = 1 if results['pvalue'] < self.alpha else 0
     
         return results
     
+    def combine_results_across_groups(self, data: pd.DataFrame = None, grouping_cols: List=['experiment', 'outcome']):
+        """
+        Combine results across groups using a weighted average based on the size of the treatment group.        
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+        The DataFrame containing the results.
+        grouping_cols : list, optional
+        The columns to group by. Defaults to ['outcome']
+    
+        Returns
+        -------
+        A Pandas DataFrame with combined results
+        """
+
+        if data is None:
+            data = self.results
+
+        # check we are not combining across grouping cols, there should be one record per combination
+        if any(data.groupby(grouping_cols+['group']) .size() > 1):
+            self.__log_and_raise_error(f'Cannot combine results across {grouping_cols}, `combine_results` with meta-analysis first!')
+
+        results = data.groupby(grouping_cols).apply(self.__compute_weighted_effect).reset_index()
+
+        # keep initial order
+        result_columns = ['experiment','group', 'outcome']
+        existing_columns = [col for col in result_columns if col in results.columns]
+        remaining_columns = [col for col in results.columns if col not in existing_columns]
+        final_columns = existing_columns + remaining_columns
+        return results[final_columns]
+
+
+    def __compute_weighted_effect(self, group):
+
+        group['gweight'] = group['treated_units']
+        absolute_effect = np.sum(group['absolute_effect'] * group['gweight']) / np.sum(group['gweight'])
+        relative_effect = np.sum(group['relative_effect'] * group['gweight']) / np.sum(group['gweight'])
+        combined_balance = np.sum(group['balance'] * group['gweight']) / np.sum(group['gweight'])
+        variance = (group['standard_error'] ** 2) * group['gweight']
+        group_size = group.shape[0]
+
+        pooled_variance = np.sum(variance) / np.sum(group['gweight'])
+        combined_se = np.sqrt(pooled_variance)
+        z_score = absolute_effect / combined_se
+        combined_p_value = 2 * (1 - stats.norm.cdf(abs(z_score)))
+        return pd.Series({
+            'group': 'combined',
+            'balance': combined_balance,
+            'treated_units' : np.sum(group['gweight']),
+            'absolute_effect': absolute_effect,
+            'relative_effect': relative_effect,
+            'stat_significance': 1 if combined_p_value < self.alpha else 0,
+            'standard_error': combined_se,
+            'pvalue': combined_p_value,
+   
+        })
+
 
     def __log_and_raise_error(self, message, exception_type=ValueError):
         """
