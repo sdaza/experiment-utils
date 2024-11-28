@@ -13,6 +13,43 @@ from typing import Iterable
 _spark_ctx = None
 
 
+def setup_logging(turn_off_package: str = None):
+    
+    # suppress logs
+    if turn_off_package is not None:
+        to_logger = logging.getLogger(turn_off_package)
+        to_logger.setLevel(logging.ERROR)
+        to_logger.handlers = [logging.NullHandler()]
+
+    # set up the main logger
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+
+    # clear existing handlers
+    if not logger.hasHandlers():
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+
+    return logger
+
+
+def log_and_raise_error(message, exception_type=ValueError):
+    """"
+    Logs an error message and raises an exception of the specified type.
+
+    :param message: The error message to log and raise.
+    :param exception_type: The type of exception to raise (default is ValueError).
+    """
+    if logger is None:
+        logger = setup_logging()
+
+    logger.error(message)
+    raise exception_type(message)
+
+
 def get_spark():
     global _spark_ctx
     if _spark_ctx is None:

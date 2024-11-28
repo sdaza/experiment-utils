@@ -2,11 +2,11 @@
 
 Generic functions for experiment analysis and design
 
-- [Experimental utils](#experimental-utils)
+- [Experiment utils](#experiment-utils)
 - [Installation](#installation)
 - [How to use it](#how-to-use-it)
-    - [Experiment Analyzer](#experiment-analyzer)
-	- [Power Analysis](#power-analysis)
+  - [Experiment Analyzer](#experiment-analyzer)
+  - [Power Analysis](#power-analysis)
 
 # Installation 
 
@@ -27,10 +27,10 @@ analyzer = ExperimentAnalyzer(
     outcomes=['registrations', 'visits'],
     covariates=covariates,
     instrument_col="instrument",
-    experimental_units=["campaign_key"],
+    experiment_identifier=["campaign_key"],
     adjustment=None)
 
-analyzer.get_uplifts()
+analyzer.get_effects()
 analyzer.results
 ```
 

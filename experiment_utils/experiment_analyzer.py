@@ -2,10 +2,11 @@
 Class ExperimentAnlyzer to analyze and design experiments
 """
 
-import logging
+
 from pyspark.sql import functions as F
 from pyspark.sql import DataFrame
-from spark_instance import *  # Ensure to import only what's necessary
+from utils import setup_logging, log_and_raise_error
+from spark_instance import *
 import pandas as pd
 import numpy as np
 from typing import Dict, List
@@ -15,28 +16,7 @@ from linearmodels.iv import IV2SLS
 import statsmodels.formula.api as smf
 from scipy import stats
 
-
-def setup_logging():
-    # suppress logs from dowhy
-    dw_logger = logging.getLogger('dowhy')
-    dw_logger.setLevel(logging.ERROR)
-    dw_logger.handlers = [logging.NullHandler()]
-
-    # set up the main logger
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
-
-    # clear existing handlers
-    if not logger.hasHandlers():
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-
-    return logger
-
-logger = setup_logging()
+logger = setup_logging(turn_off_package='dowhy')
 
 
 class ExperimentAnalyzer:
@@ -120,7 +100,7 @@ class ExperimentAnalyzer:
         missing_columns = set(required_columns) - set(self.data.columns)
         
         if missing_columns:
-            self.__log_and_raise_error(
+            log_and_raise_error(
                 f"The following required columns are missing from the dataframe: {missing_columns}"
             )
         if self.covariates==None:
@@ -151,12 +131,12 @@ class ExperimentAnalyzer:
 
         for cov in num_covariates:
             if data[cov].isna().all():
-                self.__log_and_raise_error(f'Column {cov} has only missing values')
+                log_and_raise_error(f'Column {cov} has only missing values')
             data[cov] = data[cov].fillna(data[cov].mean())
 
         for cov in bin_covariates:
             if data[cov].isna().all():
-                self.__log_and_raise_error(f'Column {cov} has only missing values.')
+                log_and_raise_error(f'Column {cov} has only missing values.')
             data[cov] = data[cov].fillna(data[cov].mode()[0])
 
         return data
@@ -346,7 +326,7 @@ class ExperimentAnalyzer:
         """
 
         if not self.instrument_col:
-            self.__log_and_raise_error("Instrument column must be specified for IV adjustment")
+            log_and_raise_error("Instrument column must be specified for IV adjustment")
 
         if formula is None:
             formula = f"{outcome_variable} ~ 1 + [{self.treatment_col} ~ {self.instrument_col}]"
@@ -491,7 +471,7 @@ class ExperimentAnalyzer:
                     logger.warning(f'Skipping group {group} as it is not a valid treatment-control group')
                     continue
                 if not (0 in groupvalues and 1 in groupvalues):
-                    self.__log_and_raise_error(f'The treatment column {self.treatment_col} must be 0 and 1')
+                    log_and_raise_error(f'The treatment column {self.treatment_col} must be 0 and 1')
 
                 temp_group = self.impute_missing_values(
                     data=temp_group,
@@ -662,7 +642,7 @@ class ExperimentAnalyzer:
 
         # check we are not combining across grouping cols, there should be one record per combination
         if any(data.groupby(grouping_cols+['group']) .size() > 1):
-            self.__log_and_raise_error(f'Cannot combine results across {grouping_cols}, `combine_results` with meta-analysis first!')
+            log_and_raise_error(f'Cannot combine results across {grouping_cols}, `combine_results` with meta-analysis first!')
 
         results = data.groupby(grouping_cols).apply(self.__compute_weighted_effect).reset_index()
 
@@ -698,15 +678,3 @@ class ExperimentAnalyzer:
             'pvalue': combined_p_value,
    
         })
-
-
-    def __log_and_raise_error(self, message, exception_type=ValueError):
-        """
-        Logs an error message and raises an exception of the specified type.
-
-        :param message: The error message to log and raise.
-        :param exception_type: The type of exception to raise (default is ValueError).
-        """
-        
-        logger.error(message)
-        raise exception_type(message)
