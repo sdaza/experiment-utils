@@ -6,7 +6,6 @@ Class ExperimentAnlyzer to analyze and design experiments
 from pyspark.sql import functions as F
 from pyspark.sql import DataFrame
 from .utils import setup_logger, turn_off_package_logger, log_and_raise_error
-from spark_instance import *
 import pandas as pd
 import numpy as np
 from typing import Dict, List
