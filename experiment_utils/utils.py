@@ -10,25 +10,11 @@ from pyspark.sql import types as T
 from pyspark.sql.window import Window
 from typing import Iterable
 
+
 def turn_off_package_logger(package: str):
     logger = logging.getLogger(package)
     logger.setLevel(logging.ERROR)
     logger.handlers = [logging.NullHandler()]
-
-
-def setup_logger():
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
-
-    # clear existing handlers
-    if not logger.hasHandlers():
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-
-    return logger
 
 
 def log_and_raise_error(logger, message, exception_type=ValueError):

@@ -2,6 +2,7 @@
 PowerSim class for simulation of power analysis.
 """
 
+import logging
 import pandas as pd
 import numpy as np
 import itertools
@@ -14,7 +15,13 @@ import scipy.stats as stats
 import statsmodels.api as sm
 from statsmodels.stats.proportion import proportions_ztest as prop_test
 from statsmodels.stats.weightstats import ttest_ind as ttest
-from .utils import setup_logger, log_and_raise_error
+from .utils import log_and_raise_error
+
+logging.basicConfig(
+    level=logging.WARNING, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 
 class PowerSim:
@@ -56,7 +63,7 @@ class PowerSim:
         self.alpha = alpha
         self.correction = correction
         self.fdr_method = fdr_method
-        self.logger = setup_logger()
+        self.logger = logging.getLogger('experiment_utils.power_sim')
     
     
     # simulate data

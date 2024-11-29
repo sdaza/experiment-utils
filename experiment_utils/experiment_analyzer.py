@@ -15,6 +15,12 @@ from linearmodels.iv import IV2SLS
 import statsmodels.formula.api as smf
 from scipy import stats
 
+logging.basicConfig(
+    level=logging.WARNING, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
 
 class ExperimentAnalyzer:
     def __init__(
@@ -60,7 +66,7 @@ class ExperimentAnalyzer:
             Significance level, by default 0.05
         """
         
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger('experiment_utils.experiment_analyzer')
         self.data = data
         self.outcomes = outcomes
         self.covariates = covariates
