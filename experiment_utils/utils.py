@@ -11,9 +11,9 @@ from pyspark.sql.window import Window
 from typing import Iterable
 
 def turn_off_package_logger(package: str):
-    to_logger = logging.getLogger(package)
-    to_logger.setLevel(logging.ERROR)
-    to_logger.handlers = [logging.NullHandler()]
+    logger = logging.getLogger(package)
+    logger.setLevel(logging.ERROR)
+    logger.handlers = [logging.NullHandler()]
 
 
 def setup_logger():

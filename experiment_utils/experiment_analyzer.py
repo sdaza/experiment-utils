@@ -2,10 +2,10 @@
 Class ExperimentAnlyzer to analyze and design experiments
 """
 
-
+import logging
 from pyspark.sql import functions as F
 from pyspark.sql import DataFrame
-from .utils import setup_logger, turn_off_package_logger, log_and_raise_error
+from .utils import turn_off_package_logger, log_and_raise_error
 import pandas as pd
 import numpy as np
 from typing import Dict, List
@@ -15,7 +15,6 @@ from linearmodels.iv import IV2SLS
 import statsmodels.formula.api as smf
 from scipy import stats
 
-turn_off_package_logger('dowhy')
 
 class ExperimentAnalyzer:
     def __init__(
@@ -61,7 +60,7 @@ class ExperimentAnalyzer:
             Significance level, by default 0.05
         """
         
-        self.logger = setup_logger()
+        self.logger = logging.getLogger(__name__)
         self.data = data
         self.outcomes = outcomes
         self.covariates = covariates
@@ -268,7 +267,10 @@ class ExperimentAnalyzer:
         -------
         pd.DataFrame
             Data with the estimated IPW
-        """        
+        """ 
+        
+        turn_off_package_logger('dowhy')      
+        
         causal_model = CausalModel(
             data=data,
             treatment=self.treatment_col,
