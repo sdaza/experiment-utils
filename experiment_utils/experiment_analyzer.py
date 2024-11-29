@@ -581,6 +581,8 @@ class ExperimentAnalyzer:
             index_to_insert = len(grouping_cols)
             result_columns.insert(index_to_insert+1, 'balance')
         pooled_results['stat_significance'] = pooled_results['stat_significance'].astype(int)
+        
+        self.logger.warning(f'Combining results using fixed-effects meta-analysis!')
         return pooled_results[result_columns]
 
 
@@ -628,16 +630,18 @@ class ExperimentAnalyzer:
         # check we are not combining across grouping cols, there should be one record per combination
         if any(data.groupby(grouping_cols+['group']) .size() > 1):
             log_and_raise_error(self.logger, f'Cannot combine results across {grouping_cols}, `combine_results` with meta-analysis first!')
-
         results = data.groupby(grouping_cols).apply(self.__compute_weighted_effect).reset_index()
 
+        self.logger.warning(f'Combining across groups using weighted averages (treated units) and standard errors!')
+        self.logger.warning(f'For a better standard error estimation, use meta-analysis or the `combine_results` function')
+        
         # keep initial order
         result_columns = ['experiment','group', 'outcome']
         existing_columns = [col for col in result_columns if col in results.columns]
         remaining_columns = [col for col in results.columns if col not in existing_columns]
         final_columns = existing_columns + remaining_columns
         return results[final_columns]
-
+    
 
     def __compute_weighted_effect(self, group):
 
