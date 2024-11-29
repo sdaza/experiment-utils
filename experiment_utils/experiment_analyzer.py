@@ -568,6 +568,8 @@ class ExperimentAnalyzer:
         A Pandas DataFrame with combined results
         """
 
+        if self.results.experiment.nunique() < 2:
+            self.log_and_raise_error('Cannot combine results if there is only one experiment!')
 
         pooled_results = self.results.groupby(grouping_cols).apply(
             lambda df: pd.Series(self.__get_fixed_meta_analysis_estimate(df))
@@ -635,7 +637,7 @@ class ExperimentAnalyzer:
         self.logger.warning(f'For a better standard error estimation, use meta-analysis or the `combine_results` function')
         
         # keep initial order
-        result_columns = ['experiment','group', 'outcome']
+        result_columns = ['experiment','group', 'outcome', 'balance']
         existing_columns = [col for col in result_columns if col in results.columns]
         remaining_columns = [col for col in results.columns if col not in existing_columns]
         final_columns = existing_columns + remaining_columns
@@ -647,7 +649,6 @@ class ExperimentAnalyzer:
         group['gweight'] = group['treated_units']
         absolute_effect = np.sum(group['absolute_effect'] * group['gweight']) / np.sum(group['gweight'])
         relative_effect = np.sum(group['relative_effect'] * group['gweight']) / np.sum(group['gweight'])
-        combined_balance = np.sum(group['balance'] * group['gweight']) / np.sum(group['gweight'])
         variance = (group['standard_error'] ** 2) * group['gweight']
         group_size = group.shape[0]
 
@@ -655,9 +656,9 @@ class ExperimentAnalyzer:
         combined_se = np.sqrt(pooled_variance)
         z_score = absolute_effect / combined_se
         combined_p_value = 2 * (1 - stats.norm.cdf(abs(z_score)))
-        return pd.Series({
+
+        output = pd.Series({
             'group': 'combined',
-            'balance': combined_balance,
             'treated_units' : np.sum(group['gweight']),
             'absolute_effect': absolute_effect,
             'relative_effect': relative_effect,
@@ -666,3 +667,9 @@ class ExperimentAnalyzer:
             'pvalue': combined_p_value,
    
         })
+
+        if 'balance' in group.columns:
+            combined_balance = np.sum(group['balance'] * group['gweight']) / np.sum(group['gweight'])
+            output['balance'] = combined_balance
+
+        return output

@@ -10,7 +10,6 @@ from pyspark.sql import types as T
 from pyspark.sql.window import Window
 from typing import Iterable
 
-
 def turn_off_package_logger(package: str):
     to_logger = logging.getLogger(package)
     to_logger.setLevel(logging.ERROR)
