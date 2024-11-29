@@ -17,7 +17,7 @@ from scipy import stats
 
 logging.basicConfig(
     level=logging.WARNING, 
-    format='%(asctime)s - %(message)s',
+    format='%(asctime)s: %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 
@@ -577,7 +577,7 @@ class ExperimentAnalyzer:
         """
 
         if self.results.experiment.nunique() < 2:
-            log_and_raise_error('Cannot combine results if there is only one experiment!')
+            log_and_raise_error(self.logger, 'Cannot combine results if there is only one experiment!')
 
         pooled_results = self.results.groupby(grouping_cols).apply(
             lambda df: pd.Series(self.__get_fixed_meta_analysis_estimate(df))
