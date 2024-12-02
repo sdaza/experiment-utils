@@ -35,7 +35,8 @@ class ExperimentAnalyzer:
         target_ipw_effect: str = "ATT",
         adjustment: str = None,
         instrument_col: str = None,
-        alpha: float = 0.05
+        alpha: float = 0.05, 
+        assess_overlap = False
     ):
 
         """
@@ -65,6 +66,8 @@ class ExperimentAnalyzer:
             Formula for the estimated regression, by default None
         alpha : float, optional
             Significance level, by default 0.05
+        assess_overlap : bool, optional
+            Assess overlap between treatment and control groups when using IPW to adjust covariates, by default False
         """
         
         self.logger = logging.getLogger('experiment_utils.experiment_analyzer')
@@ -80,6 +83,7 @@ class ExperimentAnalyzer:
         self.__check_input()
         self.formula = None
         self.alpha = alpha
+        self.assess_overlap = assess_overlap
 
         self.target_weights = {"ATT": "tips_stabilized_weight", 
                                "ATE": "ipw_stabilized_weight", 
@@ -563,12 +567,14 @@ class ExperimentAnalyzer:
                         if adj_imbalance.shape[0] > 0:
                             self.logger.warning('::::: Imbalanced covariates')
                             print(adj_imbalance[['covariate', 'smd', 'balance_flag']])
-                        overlap = self.get_overlap_coefficient(
-                            temp_group[temp_group[self.treatment_col]==1].propensity_score, 
-                            temp_group[temp_group[self.treatment_col]==0].propensity_score)  
-                        self.logger.warning(
-                            f'::::: Overlap group "{group}": {np.round(overlap, 2)}'
-                        )    
+
+                        if self.assess_overlap:                       
+                            overlap = self.get_overlap_coefficient(
+                                temp_group[temp_group[self.treatment_col]==1].propensity_score, 
+                                temp_group[temp_group[self.treatment_col]==0].propensity_score)  
+                            self.logger.warning(
+                                f'::::: Overlap group "{group}": {np.round(overlap, 2)}'
+                            )    
 
                 models = {
                     None: self.linear_regression,
