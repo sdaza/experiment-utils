@@ -57,10 +57,8 @@ class PowerSim:
         self.alpha = alpha
         self.correction = correction
         self.fdr_method = fdr_method
-        self.logger = logging.getLogger('Power Simulator', 
-                                        format='%(asctime)s %(message)s', 
-                                        datefmt='%Y-%m-%d %H:%M:%S', 
-                                        level=logging.INFO)
+        self.logger = logging.getLogger('Power Simulator')
+        self.logger.setLevel(logging.INFO)
     
     
     # simulate data

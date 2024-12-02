@@ -64,10 +64,9 @@ class ExperimentAnalyzer:
             Assess overlap between treatment and control groups when using IPW to adjust covariates, by default False
         """
         
-        self.logger = logging.getLogger('Experiment Analyzer', 
-                                        format='%(asctime)s %(message)s', 
-                                        datefmt='%Y-%m-%d %H:%M:%S', 
-                                        level=logging.INFO)
+        self.logger = logging.getLogger('Experiment Analyzer')
+        self.logger.setLevel(logging.INFO)
+        
         self.data = data
         self.outcomes = outcomes
         self.covariates = covariates
