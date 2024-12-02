@@ -66,7 +66,6 @@ class ExperimentAnalyzer:
         
         self.logger = logging.getLogger('Experiment Analyzer')
         self.logger.setLevel(logging.INFO)
-        
         self.data = data
         self.outcomes = outcomes
         self.covariates = covariates
