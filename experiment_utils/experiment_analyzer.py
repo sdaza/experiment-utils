@@ -17,7 +17,7 @@ from scipy import stats
 from scipy.stats import gaussian_kde
 
 logging.basicConfig(
-    level=logging.WARNING, 
+    level=logging.INFO, 
     format='%(asctime)s %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
@@ -70,7 +70,7 @@ class ExperimentAnalyzer:
             Assess overlap between treatment and control groups when using IPW to adjust covariates, by default False
         """
         
-        self.logger = logging.getLogger('experiment_utils.experiment_analyzer')
+        self.logger = logging.getLogger('Experiment Analyzer')
         self.data = data
         self.outcomes = outcomes
         self.covariates = covariates
@@ -478,7 +478,7 @@ class ExperimentAnalyzer:
         # iterate over each combination of experimental units
         for row in key_experiments:
 
-            self.logger.warning(f'Processing: {row}')
+            self.logger.info(f'Processing: {row}')
             filter_condition = reduce(
                 lambda a, b: a & b,
                 [
@@ -537,13 +537,13 @@ class ExperimentAnalyzer:
                         data=temp_group, covariates=final_covariates
                     )
 
-                    self.logger.warning(
+                    self.logger.info(
                         f'::::: Balance group "{group}": {np.round(balance["balance_flag"].mean(), 2)}'
                     )
 
                     imbalance = balance[balance.balance_flag==0]
                     if imbalance.shape[0] > 0:
-                        self.logger.warning('::::: Imbalanced covariates')
+                        self.logger.info('::::: Imbalanced covariates')
                         print(imbalance[['covariate', 'smd', 'balance_flag']])
 
                     if adjustment == "IPW":
@@ -560,21 +560,19 @@ class ExperimentAnalyzer:
                             weights_col=self.target_weights[self.target_ipw_effect],
                         )
 
-                        self.logger.warning(
+                        self.logger.info(
                             f'::::: Adjusted balance group "{group}": {np.round(adjusted_balance["balance_flag"].mean(), 2)}'
                         )
                         adj_imbalance = adjusted_balance[adjusted_balance.balance_flag==0]
                         if adj_imbalance.shape[0] > 0:
-                            self.logger.warning('::::: Imbalanced covariates')
+                            self.logger.info('::::: Imbalanced covariates')
                             print(adj_imbalance[['covariate', 'smd', 'balance_flag']])
-
-                        if self.assess_overlap:                       
-                            overlap = self.get_overlap_coefficient(
-                                temp_group[temp_group[self.treatment_col]==1].propensity_score, 
-                                temp_group[temp_group[self.treatment_col]==0].propensity_score)  
-                            self.logger.warning(
-                                f'::::: Overlap group "{group}": {np.round(overlap, 2)}'
-                            )    
+                        overlap = self.get_overlap_coefficient(
+                            temp_group[temp_group[self.treatment_col]==1].propensity_score, 
+                            temp_group[temp_group[self.treatment_col]==0].propensity_score)  
+                        self.logger.info(
+                            f'::::: Overlap group "{group}": {np.round(overlap, 2)}'
+                        )    
 
                 models = {
                     None: self.linear_regression,
@@ -636,7 +634,7 @@ class ExperimentAnalyzer:
             result_columns.insert(index_to_insert+1, 'balance')
         pooled_results['stat_significance'] = pooled_results['stat_significance'].astype(int)
         
-        self.logger.warning(f'Combining results using fixed-effects meta-analysis!')
+        self.logger.info(f'Combining results using fixed-effects meta-analysis!')
         return pooled_results[result_columns]
 
 
@@ -686,8 +684,8 @@ class ExperimentAnalyzer:
             log_and_raise_error(self.logger, f'Cannot combine results across {grouping_cols}, `combine_results` with meta-analysis first!')
         results = data.groupby(grouping_cols).apply(self.__compute_weighted_effect).reset_index()
 
-        self.logger.warning(f'Combining across groups using weighted averages (treated units) and standard errors!')
-        self.logger.warning(f'For a better standard error estimation, use meta-analysis or the `combine_results` function')
+        self.logger.info(f'Combining across groups using weighted averages (treated units) and standard errors!')
+        self.logger.info(f'For a better standard error estimation, use meta-analysis or the `combine_results` function')
         
         # keep initial order
         result_columns = ['experiment','group', 'outcome', 'balance']
