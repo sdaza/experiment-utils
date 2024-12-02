@@ -562,12 +562,13 @@ class ExperimentAnalyzer:
                         if adj_imbalance.shape[0] > 0:
                             self.logger.info('::::: Imbalanced covariates')
                             print(adj_imbalance[['covariate', 'smd', 'balance_flag']])
-                        overlap = self.get_overlap_coefficient(
-                            temp_group[temp_group[self.treatment_col]==1].propensity_score, 
-                            temp_group[temp_group[self.treatment_col]==0].propensity_score)  
-                        self.logger.info(
-                            f'::::: Overlap group "{group}": {np.round(overlap, 2)}'
-                        )    
+                        if self.assess_overlap:
+                            overlap = self.get_overlap_coefficient(
+                                temp_group[temp_group[self.treatment_col]==1].propensity_score, 
+                                temp_group[temp_group[self.treatment_col]==0].propensity_score)  
+                            self.logger.info(
+                                f'::::: Overlap group "{group}": {np.round(overlap, 2)}'
+                            )    
 
                 models = {
                     None: self.linear_regression,
