@@ -14,6 +14,7 @@ from dowhy import CausalModel
 from linearmodels.iv import IV2SLS
 import statsmodels.formula.api as smf
 from scipy import stats
+from scipy.stats import gaussian_kde
 
 logging.basicConfig(
     level=logging.WARNING, 
@@ -256,6 +257,51 @@ class ExperimentAnalyzer:
         }
 
 
+    def iv_regression(self, data: pd.DataFrame, outcome_variable: str) -> Dict:
+        """
+        Perform instrumental variable regression of the outcome variable on the treatment variable.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            Data to run the regression on
+        outcome_variable : str
+            Name of the outcome variable
+
+        Returns
+        -------
+        Dict
+            Regression results including absolute and relative uplift, standard error, and p-value
+        """
+
+        if not self.instrument_col:
+            log_and_raise_error(self.logger, "Instrument column must be specified for IV adjustment")
+
+        formula = f"{outcome_variable} ~ 1 + [{self.treatment_col} ~ {self.instrument_col}]"
+        model = IV2SLS.from_formula(formula, data)
+        results = model.fit(cov_type='robust')
+
+        coefficient = results.params[self.treatment_col]
+        intercept = results.params["Intercept"]
+        relative_effect = coefficient / intercept
+        standard_error = results.std_errors[self.treatment_col]
+        pvalue = results.pvalues[self.treatment_col]
+
+        return {
+            "group": data[self.group_col].unique()[0],
+            "outcome": outcome_variable,
+            "treated_units": data[self.treatment_col].sum(),
+            "control_units": data[self.treatment_col].count() - data[self.treatment_col].sum(),
+            "control_value": intercept,
+            "treatment_value": intercept+coefficient,
+            "absolute_effect": coefficient,
+            "relative_effect": relative_effect,
+            "standard_error": standard_error,
+            "pvalue": pvalue,
+            "stat_significance": 1 if pvalue < self.alpha else 0
+        }
+
+
     def estimate_ipw(self, data: pd.DataFrame, covariates: List[str], outcome_variable: str) -> pd.DataFrame:
         """
         Estimate the IPW using the dowhy library.
@@ -302,53 +348,7 @@ class ExperimentAnalyzer:
             },
         )
         return data
-
-
-    def iv_regression(self, data: pd.DataFrame, outcome_variable: str) -> Dict:
-        """
-        Perform instrumental variable regression of the outcome variable on the treatment variable.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            Data to run the regression on
-        outcome_variable : str
-            Name of the outcome variable
-
-        Returns
-        -------
-        Dict
-            Regression results including absolute and relative uplift, standard error, and p-value
-        """
-
-        if not self.instrument_col:
-            log_and_raise_error(self.logger, "Instrument column must be specified for IV adjustment")
-
-        formula = f"{outcome_variable} ~ 1 + [{self.treatment_col} ~ {self.instrument_col}]"
-        model = IV2SLS.from_formula(formula, data)
-        results = model.fit(cov_type='robust')
-
-        coefficient = results.params[self.treatment_col]
-        intercept = results.params["Intercept"]
-        relative_effect = coefficient / intercept
-        standard_error = results.std_errors[self.treatment_col]
-        pvalue = results.pvalues[self.treatment_col]
-
-        return {
-            "group": data[self.group_col].unique()[0],
-            "outcome": outcome_variable,
-            "treated_units": data[self.treatment_col].sum(),
-            "control_units": data[self.treatment_col].count() - data[self.treatment_col].sum(),
-            "control_value": intercept,
-            "treatment_value": intercept+coefficient,
-            "absolute_effect": coefficient,
-            "relative_effect": relative_effect,
-            "standard_error": standard_error,
-            "pvalue": pvalue,
-            "stat_significance": 1 if pvalue < self.alpha else 0
-        }
-
-
+    
     def calculate_smd(
         self, data=None, covariates=None, weights_col="weights", threshold=0.1
     ):
@@ -414,6 +414,40 @@ class ExperimentAnalyzer:
 
         return smd_df
 
+
+    def get_overlap_coefficient(self, treatment_scores, control_scores, grid_points=10000, bw_method=0.1):
+        """
+        Calculate the Overlap Coefficient between treatment and control propensity scores.
+
+        Parameters
+        ----------
+        treatment_scores : array-like
+            Array of treatment propensity scores.
+        control_scores : array-like
+            Array of control propensity scores.
+        grid_points : int, optional
+            number of points to evaluate KDE on (default is 10000 for higher resolution)
+        bw_method : float, optional
+            Bandwidth method for the KDE estimation. Defaults to 0.1
+
+        Returns
+        -------
+        float
+        """
+
+        kde_treatment = gaussian_kde(treatment_scores, bw_method=bw_method)
+        kde_control = gaussian_kde(control_scores, bw_method=bw_method)
+
+        min_score = min(treatment_scores.min(), control_scores.min())
+        max_score = max(treatment_scores.max(), control_scores.max())
+        x_grid = np.linspace(min_score, max_score, grid_points)
+        kde_treatment_values = kde_treatment(x_grid)
+        kde_control_values = kde_control(x_grid)
+
+        overlap_coefficient = np.trapz(np.minimum(kde_treatment_values, kde_control_values), x_grid)
+
+        return overlap_coefficient
+    
 
     def get_effects(self, min_binary_count=100, adjustment=None):
         """
@@ -529,7 +563,12 @@ class ExperimentAnalyzer:
                         if adj_imbalance.shape[0] > 0:
                             self.logger.warning('::::: Imbalanced covariates')
                             print(adj_imbalance[['covariate', 'smd', 'balance_flag']])
-    
+                        overlap = self.get_overlap_coefficient(
+                            temp_group[temp_group[self.treatment_col]==1].propensity_score, 
+                            temp_group[temp_group[self.treatment_col]==0].propensity_score)  
+                        self.logger.warning(
+                            f'::::: Overlap group "{group}": {np.round(overlap, 2)}'
+                        )    
 
                 models = {
                     None: self.linear_regression,
