@@ -16,12 +16,6 @@ import statsmodels.formula.api as smf
 from scipy import stats
 from scipy.stats import gaussian_kde
 
-logging.basicConfig(
-    level=logging.INFO, 
-    format='%(asctime)s %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-
 
 class ExperimentAnalyzer:
     def __init__(
@@ -70,7 +64,10 @@ class ExperimentAnalyzer:
             Assess overlap between treatment and control groups when using IPW to adjust covariates, by default False
         """
         
-        self.logger = logging.getLogger('Experiment Analyzer')
+        self.logger = logging.getLogger('Experiment Analyzer', 
+                                        format='%(asctime)s %(message)s', 
+                                        datefmt='%Y-%m-%d %H:%M:%S', 
+                                        level=logging.INFO)
         self.data = data
         self.outcomes = outcomes
         self.covariates = covariates
