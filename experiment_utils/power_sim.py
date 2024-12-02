@@ -17,12 +17,6 @@ from statsmodels.stats.proportion import proportions_ztest as prop_test
 from statsmodels.stats.weightstats import ttest_ind as ttest
 from .utils import log_and_raise_error
 
-logging.basicConfig(
-    level=logging.INFO, 
-    format='%(asctime)s %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-
 
 class PowerSim:
     def __init__(self, metric='proportion', relative_effect=False, nsim=100, 
@@ -64,6 +58,7 @@ class PowerSim:
         self.correction = correction
         self.fdr_method = fdr_method
         self.logger = logging.getLogger('Power Simulator')
+        self.logger.setLevel(logging.INFO)
     
     
     # simulate data
