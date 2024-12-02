@@ -18,7 +18,7 @@ from statsmodels.stats.weightstats import ttest_ind as ttest
 from .utils import log_and_raise_error
 
 logging.basicConfig(
-    level=logging.WARNING, 
+    level=logging.INFO, 
     format='%(asctime)s %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
@@ -63,7 +63,7 @@ class PowerSim:
         self.alpha = alpha
         self.correction = correction
         self.fdr_method = fdr_method
-        self.logger = logging.getLogger('experiment_utils.power_sim')
+        self.logger = logging.getLogger('Power Simulator')
     
     
     # simulate data
