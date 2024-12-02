@@ -415,7 +415,7 @@ class ExperimentAnalyzer:
         return smd_df
 
 
-    def get_overlap_coefficient(self, treatment_scores, control_scores, grid_points=10000, bw_method=0.1):
+    def get_overlap_coefficient(self, treatment_scores, control_scores, grid_points=1000, bw_method=None):
         """
         Calculate the Overlap Coefficient between treatment and control propensity scores.
 
