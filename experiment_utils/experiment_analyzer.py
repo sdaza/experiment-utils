@@ -621,7 +621,8 @@ class ExperimentAnalyzer:
         """
 
         if grouping_cols is None:
-            log_and_raise_error(self.logger, 'Need to specify grouping columns!')
+            self.logger.warning('No grouping columns specified, using only outcome!')
+            grouping_cols = ['outcome']
         else: 
             grouping_cols = self.__ensure_list(grouping_cols)
             if 'outcome' not in grouping_cols:
