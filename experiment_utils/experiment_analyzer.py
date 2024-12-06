@@ -816,7 +816,7 @@ class ExperimentAnalyzer:
             self.logger.warning('No adjusted balance information available!')
 
 
-    def __ensure_spark_df(self, dataframe):
+    def __ensure_spark_df(self,     dataframe):
         """
         Convert a Pandas DataFrame to a PySpark DataFrame if it is a Pandas DataFrame.
         """
