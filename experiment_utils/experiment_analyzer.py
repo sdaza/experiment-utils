@@ -6,6 +6,7 @@ import logging
 from pyspark.sql import functions as F
 from pyspark.sql import DataFrame
 from .utils import turn_off_package_logger, log_and_raise_error
+from .spark_instance import *
 import pandas as pd
 import numpy as np
 from typing import Dict, List
@@ -63,7 +64,7 @@ class ExperimentAnalyzer:
         
         self.logger = logging.getLogger('Experiment Analyzer')
         self.logger.setLevel(logging.INFO)
-        self.data = data
+        self.data = self.__ensure_spark_df(data)
         self.outcomes = self.__ensure_list(outcomes)
         self.covariates = self.__ensure_list(covariates)
         self.treatment_col = treatment_col
@@ -741,7 +742,7 @@ class ExperimentAnalyzer:
 
         return output
     
-    
+
     @property
     def imbalance(self):
         """
@@ -813,5 +814,14 @@ class ExperimentAnalyzer:
             return self._adjusted_balance
         else:
             self.logger.warning('No adjusted balance information available!')
-               
-    
+
+
+    def __ensure_spark_df(self,     dataframe):
+        """
+        Convert a Pandas DataFrame to a PySpark DataFrame if it is a Pandas DataFrame.
+        """
+        if isinstance(dataframe, pd.DataFrame):  
+            spark_df = spark.createDataFrame(dataframe)
+            return spark_df
+        else:
+            return dataframe
