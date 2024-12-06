@@ -23,10 +23,8 @@ pip install git+https://github.com/sdaza/experiment-utils.git
 analyzer = ExperimentAnalyzer(
     df,
     treatment_col="treatment",
-    group_col="group",
     outcomes=['registrations', 'visits'],
     covariates=covariates,
-    instrument_col="instrument",
     experiment_identifier=["campaign_key"],
     adjustment=None)
 
