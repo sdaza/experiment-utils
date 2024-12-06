@@ -596,9 +596,11 @@ class ExperimentAnalyzer:
         if len(self._balance) > 0:
             self._balance = pd.concat(self._balance).reset_index().drop(['level_1'], axis=1).rename(
                 columns={'level_0': 'experiment_identifier'})
+            self._balance =self.__transform_tuple_column(self._balance, 'experiment_identifier', self.experiment_identifier)
         
         if len(self._adjusted_balance) > 0:
             self._adjusted_balance = pd.concat(self._adjusted_balance).reset_index().drop(['level_1'], axis=1).rename(columns={'level_0': 'experiment_identifier'})
+            self._adjusted_balance =self.__transform_tuple_column(self._adjusted_balance, 'experiment_identifier', self.experiment_identifier)
 
         self._results = self.__transform_tuple_column(clean_results, 
                                                      'experiment', 
