@@ -113,6 +113,7 @@ class ExperimentAnalyzer:
                     binary_covariates.append(c)
         return binary_covariates
 
+
     def __get_numeric_covariates(self, data):
         numeric_covariates = []
         if self.covariates is not None: 
@@ -532,10 +533,10 @@ class ExperimentAnalyzer:
                     f'::::: Balance: {np.round(balance["balance_flag"].mean(), 2)}'
                 )
 
-                imbalance = balance[balance.balance_flag==0]
-                if imbalance.shape[0] > 0:
-                    self.logger.info('::::: Imbalanced covariates')
-                    print(imbalance[['covariate', 'smd', 'balance_flag']])
+                # imbalance = balance[balance.balance_flag==0]
+                # if imbalance.shape[0] > 0:
+                #     self.logger.info('::::: Imbalanced covariates')
+                #     print(imbalance[['covariate', 'smd', 'balance_flag']])
 
                 if adjustment == "IPW":
                     temp_pd = self.standardize_covariates(temp_pd, final_covariates)
@@ -556,10 +557,10 @@ class ExperimentAnalyzer:
                     self.logger.info(
                         f'::::: Adjusted balance: {np.round(adjusted_balance["balance_flag"].mean(), 2)}'
                     )
-                    adj_imbalance = adjusted_balance[adjusted_balance.balance_flag==0]
-                    if adj_imbalance.shape[0] > 0:
-                        self.logger.info('::::: Imbalanced covariates')
-                        print(adj_imbalance[['covariate', 'smd', 'balance_flag']])
+                    # adj_imbalance = adjusted_balance[adjusted_balance.balance_flag==0]
+                    # if adj_imbalance.shape[0] > 0:
+                    #     self.logger.info('::::: Imbalanced covariates')
+                    #     print(adj_imbalance[['covariate', 'smd', 'balance_flag']])
                     if self.assess_overlap:
                         overlap = self.get_overlap_coefficient(
                             temp_pd[temp_pd[self.treatment_col]==1].propensity_score, 
