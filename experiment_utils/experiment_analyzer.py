@@ -76,6 +76,8 @@ class ExperimentAnalyzer:
         self.__check_input()
         self.alpha = alpha
         self._results = None
+        self._balance = []
+        self._adjusted_balance = []
 
         self.target_weights = {"ATT": "tips_stabilized_weight", 
                                "ATE": "ipw_stabilized_weight", 
@@ -98,7 +100,7 @@ class ExperimentAnalyzer:
             log_and_raise_error(self.logger,
                 f"The following required columns are missing from the dataframe: {missing_columns}"
             )
-        if self.covariates==None:
+        if len(self.covariates)==0:
             self.logger.warning("No covariates specified, balance can't be assessed!")
 
         self.data = self.data.select(*required_columns)
@@ -451,7 +453,10 @@ class ExperimentAnalyzer:
 
         Returns
         -------
-        A Pandas DataFrame with effects.
+        results: A Pandas DataFrame with effects.
+        balance: A Pandas DataFrame with balance metrics.
+        adjusted_balance: A Pandas DataFrame with adjusted balance metrics.
+        imbalance: A Pandas DataFrame with imbalance covariates.
         """
 
         models = {
@@ -467,12 +472,13 @@ class ExperimentAnalyzer:
         if adjustment is None: 
             adjustment = self.adjustment
         
-        self._balance = {}
-        self._adjusted_balance = {}
+        self._balance = []
+        self._adjusted_balance = []
         
         # iterate over each combination of experimental units
         for row in key_experiments:
 
+            experiment_tuple = tuple(row.asDict().values())
             self.logger.info(f'Processing: {row}')
             filter_condition = reduce(
                 lambda a, b: a & b,
@@ -527,16 +533,13 @@ class ExperimentAnalyzer:
                 balance = self.calculate_smd(
                     data=temp_pd, covariates=final_covariates
                 )
-                self._balance[str(tuple(row.asDict().values()))] = balance
+                balance["experiment"] = [experiment_tuple] * len(balance)
+                balance = self.__transform_tuple_column(balance, "experiment", self.experiment_identifier)
+                self._balance.append(balance)
                 
                 self.logger.info(
                     f'::::: Balance: {np.round(balance["balance_flag"].mean(), 2)}'
                 )
-
-                # imbalance = balance[balance.balance_flag==0]
-                # if imbalance.shape[0] > 0:
-                #     self.logger.info('::::: Imbalanced covariates')
-                #     print(imbalance[['covariate', 'smd', 'balance_flag']])
 
                 if adjustment == "IPW":
                     temp_pd = self.standardize_covariates(temp_pd, final_covariates)
@@ -551,16 +554,15 @@ class ExperimentAnalyzer:
                         covariates=final_covariates,
                         weights_col=self.target_weights[self.target_ipw_effect],
                     )
-
-                    self._adjusted_balance[str(tuple(row.asDict().values()))] = adjusted_balance
+                    adjusted_balance["experiment"] = [experiment_tuple] * len(adjusted_balance)
+                    adjusted_balance = self.__transform_tuple_column(adjusted_balance, "experiment", 
+                                                                     self.experiment_identifier)
+                    self._adjusted_balance.append(adjusted_balance)
 
                     self.logger.info(
                         f'::::: Adjusted balance: {np.round(adjusted_balance["balance_flag"].mean(), 2)}'
                     )
-                    # adj_imbalance = adjusted_balance[adjusted_balance.balance_flag==0]
-                    # if adj_imbalance.shape[0] > 0:
-                    #     self.logger.info('::::: Imbalanced covariates')
-                    #     print(adj_imbalance[['covariate', 'smd', 'balance_flag']])
+
                     if self.assess_overlap:
                         overlap = self.get_overlap_coefficient(
                             temp_pd[temp_pd[self.treatment_col]==1].propensity_score, 
@@ -576,7 +578,7 @@ class ExperimentAnalyzer:
                     output['balance'] = np.round(adjusted_balance['balance_flag'].mean(), 2)
                 elif len(final_covariates)>0:
                     output['balance'] = np.round(balance['balance_flag'].mean(), 2)
-                output['experiment'] = tuple(row.asDict().values())
+                output['experiment'] = experiment_tuple
                 
                 results.append(output)
 
@@ -594,14 +596,10 @@ class ExperimentAnalyzer:
         clean_results = clean_results[result_columns]
 
         if len(self._balance) > 0:
-            self._balance = pd.concat(self._balance).reset_index().drop(['level_1'], axis=1).rename(
-                columns={'level_0': 'experiment_identifier'})
-            self._balance =self.__transform_tuple_column(self._balance, 'experiment_identifier', self.experiment_identifier)
-        
+            self._balance = pd.concat(self._balance)
         if len(self._adjusted_balance) > 0:
-            self._adjusted_balance = pd.concat(self._adjusted_balance).reset_index().drop(['level_1'], axis=1).rename(columns={'level_0': 'experiment_identifier'})
-            self._adjusted_balance =self.__transform_tuple_column(self._adjusted_balance, 'experiment_identifier', self.experiment_identifier)
-
+            self._adjusted_balance = pd.concat(self._adjusted_balance)
+     
         self._results = self.__transform_tuple_column(clean_results, 
                                                      'experiment', 
                                                      self.experiment_identifier)
@@ -743,6 +741,25 @@ class ExperimentAnalyzer:
 
         return output
     
+    
+    @property
+    def imbalance(self):
+        """
+        Returns the imbalance DataFrame.
+        """
+        if len(self._adjusted_balance)>0:
+            ab = self.adjusted_balance[self.adjusted_balance.balance_flag==0]
+            if ab.shape[0]>0:
+                self.logger.info('Imbalance after adjustments!')
+                return ab
+        elif len(self._balance)>0:
+            b = self.balance[self.balance.balance_flag==0]
+            if b.shape[0]>0:
+                self.logger.info('Imbalance without adjustments!')
+                return b
+        else:
+            pass
+
 
     def __transform_tuple_column(self, df, tuple_column, new_columns):
         """
@@ -776,15 +793,25 @@ class ExperimentAnalyzer:
     
     @property
     def results(self):
-        return self._results 
+        if self._results is not None:
+            return self._results 
+        else:
+            self.logger.warning('Run the `get_effects` function first!')
 
 
     @property
     def balance(self):
-        return self._balance
+        if len(self._balance)>0:
+            return self._balance
+        else:
+            self.logger.warning('No balance information available!')
 
 
     @property
     def adjusted_balance(self):
-        return self._adjusted_balance
+        if len(self._adjusted_balance)>0:
+            return self._adjusted_balance
+        else:
+            self.logger.warning('No adjusted balance information available!')
+               
     
