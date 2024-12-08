@@ -34,12 +34,12 @@ class ExperimentAnalyzer:
         assess_overlap = False):
 
         """
-        Initialize an ExperimentAnalyzer object
+        Initialize ExperimentAnalyzer
 
         Parameters
         ----------
         data : DataFrame
-            Dataframe containing the data
+            PySpark Dataframe
         outcomes : List
             List of outcome variables
         covariates : List

@@ -89,8 +89,6 @@ def test_no_covariates(sample_data):
         treatment_col=treatment_col,
         experiment_identifier=experiment_identifier)
     
-
-    # This should not raise an error since all columns are present
     try:
         analyzer.get_effects()
         analyzer.results
@@ -114,7 +112,30 @@ def test_no_adjustment(sample_data):
         covariates=covariates
     )
 
-    # This should not raise an error since all columns are present
+    try:
+        analyzer.get_effects()
+        analyzer.results
+        assert True
+    except Exception as e:
+        pytest.fail(f" raised an exception: {e}")
+
+
+def test_ipw_adjustment(sample_data):
+    """Test get_effects no adjustments"""
+    outcomes = "conversion"
+    treatment_col = "treatment"
+    experiment_identifier = "experiment"
+    covariates = "baseline_conversion"
+
+    analyzer = ExperimentAnalyzer(
+        data=sample_data,
+        outcomes=outcomes,
+        treatment_col=treatment_col,
+        experiment_identifier=experiment_identifier,
+        covariates=covariates, 
+        adjustment="IPW"
+    )
+
     try:
         analyzer.get_effects()
         analyzer.results
