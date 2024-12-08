@@ -9,7 +9,7 @@ on:
       - '**'  # Triggers on pull requests to any branch
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
 
     steps:
