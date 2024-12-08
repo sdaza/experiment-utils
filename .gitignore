@@ -1,3 +1,5 @@
 .DS_Store
 testing
 experiment_utils/dev*
+__pycache__
+experiment_utils.egg-info
