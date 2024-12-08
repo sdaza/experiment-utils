@@ -1,3 +1,6 @@
+![ci](https://github.com/sdaza/experiment-utils/actions/workflows/ci.yaml/badge.svg)
+
+
 # Experiment utils
 
 Generic functions for experiment analysis and design
