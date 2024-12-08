@@ -1,4 +1,4 @@
-![example branch parameter](https://github.com/sdaza/experiment-utils/actions/workflows/ci.yaml/badge.svg?branch=main)
+![ci](https://github.com/sdaza/experiment-utils/actions/workflows/ci.yaml/badge.svg)
 
 
 # Experiment utils
