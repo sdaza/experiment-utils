@@ -121,7 +121,7 @@ def test_no_adjustment(sample_data):
 
 
 def test_ipw_adjustment(sample_data):
-    """Test get_effects no adjustments"""
+    """Test get_effects ipw adjustments"""
     outcomes = "conversion"
     treatment_col = "treatment"
     experiment_identifier = "experiment"
