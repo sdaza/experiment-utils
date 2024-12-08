@@ -7,10 +7,9 @@ name = "experiment-utils"
 version = "0.0.1"
 description = "Utils for experimental design and analysis"
 readme = "README.md"
-authors = [
-    { name = "Sebastian Daza", email = "sebastian.daza@gmail.com" }
-]
+authors = ["Sebastian Daza <sebastian.daza@gmail.com>"]
 license = "MIT"
+
 keywords = [
     "causality",
     "causal-inference",
@@ -25,7 +24,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.7"
+python = ">=3.10,<3.12"
 numpy = ">=1.21.5"
 pandas = ">=1.4.4"
 matplotlib = ">=3.5.2"
@@ -37,7 +36,3 @@ dowhy = ">=0.11.1"
 linearmodels = ">=6.1"
 pytest = ">=8.3.4"
 pyspark = ">=3.5.3"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
