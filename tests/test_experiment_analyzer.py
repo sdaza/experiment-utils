@@ -1,27 +1,77 @@
-# test_experiment_analyzer.py
-import unittest
+import pytest
+from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 from experiment_utils.experiment_analyzer import ExperimentAnalyzer
 
-class TestExperimentAnalyzer(unittest.TestCase):
-    def test_init(self):
-        # Create a sample DataFrame
-        data = [(1, 'a', 10), (2, 'b', 20)]
-        df = spark.createDataFrame(data, ['id', 'variable', 'value'])
+# Initialize a Spark session
+spark = SparkSession.builder \
+    .appName("Spark Test") \
+    .master("local[*]") \
+    .getOrCreate()
 
-        # Test ExperimentAnalyzer initialization
-        analyzer = ExperimentAnalyzer(df, ['variable'], 'id')
-        self.assertEqual(analyzer.data.count(), 2)
-        self.assertEqual(analyzer.outcomes, ['variable'])
+# Create a simple DataFrame
+data = [("Alice", 1), ("Bob", 2), ("Cathy", 3)]
+columns = ["Name", "Id"]
+df = spark.createDataFrame(data, columns)
 
-    def test_get_effects(self):
-        # Create a sample DataFrame
-        data = [(1, 'a', 10), (2, 'b', 20)]
-        df = spark.createDataFrame(data, ['id', 'variable', 'value'])
+# Show the DataFrame
+df.show()
 
-        # Test get_effects function
-        analyzer = ExperimentAnalyzer(df, ['variable'], 'id')
-        effects = analyzer.get_effects()
-        self.assertEqual(effects.count(), 1)
+@pytest.fixture
+def sample_data(spark):
+    """Fixture for creating a sample Spark DataFrame."""
+    schema = StructType([
+        StructField("experiment_id", StringType(), True),
+        StructField("treatment", IntegerType(), True),
+        StructField("outcome1", IntegerType(), True),
+        StructField("covariate1", IntegerType(), True),
+    ])
+    data = [
+        ("exp1", 1, 10, 5),
+        ("exp1", 0, 12, 6),
+        ("exp2", 1, 15, 7),
+        ("exp2", 0, 11, 8),
+    ]
+    return spark.createDataFrame(data, schema)
 
-if __name__ == '__main__':
-    unittest.main()
+def test_check_input(sample_data):
+    """Test the __check_input method of ExperimentAnalyzer."""
+    outcomes = ["outcome1"]
+    treatment_col = "treatment"
+    experiment_identifier = ["experiment_id"]
+    covariates = ["covariate1"]
+
+    analyzer = ExperimentAnalyzer(
+        data=sample_data,
+        outcomes=outcomes,
+        treatment_col=treatment_col,
+        experiment_identifier=experiment_identifier,
+        covariates=covariates
+    )
+
+    # This should not raise an error since all columns are present
+    try:
+        analyzer._ExperimentAnalyzer__check_input()
+        assert True
+    except Exception as e:
+        pytest.fail(f"__check_input raised an exception: {e}")
+
+def test_missing_columns(sample_data):
+    """Test the __check_input method with missing columns."""
+    outcomes = ["outcome1"]
+    treatment_col = "treatment"
+    experiment_identifier = ["experiment_id"]
+    covariates = ["missing_covariate"]
+
+    analyzer = ExperimentAnalyzer(
+        data=sample_data,
+        outcomes=outcomes,
+        treatment_col=treatment_col,
+        experiment_identifier=experiment_identifier,
+        covariates=covariates
+    )
+
+    # Expecting an error due to missing covariate
+    with pytest.raises(Exception, match="The following required columns are missing from the dataframe"):
+        analyzer._ExperimentAnalyzer__check_input()
