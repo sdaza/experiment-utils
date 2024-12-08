@@ -1,44 +1,43 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
-[project]
+[tool.poetry]
 name = "experiment-utils"
 version = "0.0.1"
 description = "Utils for experimental design and analysis"
 readme = "README.md"
-requires-python = ">=3.7"
-license = {text = "MIT"}
 authors = [
     { name = "Sebastian Daza", email = "sebastian.daza@gmail.com" }
 ]
-
+license = "MIT"
 keywords = [
-    'causality',
-    'causal-inference',
-    'statistics',
-    'experimentation',
-    'power-analysis'
+    "causality",
+    "causal-inference",
+    "statistics",
+    "experimentation",
+    "power-analysis"
 ]
-
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.7"
 ]
-dependencies = [
-    "numpy>=1.21.5",
-    "pandas>=1.4.4",
-    "matplotlib>=3.5.2",
-    "seaborn>=0.11.2",
-    "multiprocess>=0.70.14",
-    "statsmodels>=0.13.2",
-    "scipy>=1.9.1",
-    "dowhy>=0.11.1",
-    "linearmodels>=6.1", 
-    "pytest>=8.3.4", 
-    "pyspark>=3.5.3"
-]
 
-[tool.setuptools]
-packages = {find = {exclude = ["tests"]}}
+[tool.poetry.dependencies]
+python = ">=3.7"
+numpy = ">=1.21.5"
+pandas = ">=1.4.4"
+matplotlib = ">=3.5.2"
+seaborn = ">=0.11.2"
+multiprocess = ">=0.70.14"
+statsmodels = ">=0.13.2"
+scipy = ">=1.9.1"
+dowhy = ">=0.11.1"
+linearmodels = ">=6.1"
+pytest = ">=8.3.4"
+pyspark = ">=3.5.3"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
