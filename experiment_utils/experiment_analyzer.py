@@ -572,7 +572,7 @@ class ExperimentAnalyzer:
 
                 results.append(output)
 
-        result_columns = ['experiment', 'outcome',  'adjustment',
+        result_columns = ['experiment', 'outcome', 'adjustment',
                           'treated_units', 'control_units', 'control_value',
                           'treatment_value', 'absolute_effect', 'relative_effect',
                           'stat_significance', 'standard_error',
