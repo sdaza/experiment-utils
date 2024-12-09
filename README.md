@@ -11,7 +11,7 @@ Generic functions for experiment analysis and design
   - [Experiment Analyzer](#experiment-analyzer)
   - [Power Analysis](#power-analysis)
 
-# Installation 
+# Installation
 
 ```
 pip install git+https://github.com/sdaza/experiment-utils.git

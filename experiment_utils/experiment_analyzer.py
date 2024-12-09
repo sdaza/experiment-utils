@@ -491,7 +491,7 @@ class ExperimentAnalyzer:
 
             treatvalues = set(temp_pd[self.treatment_col].unique())
             if len(treatvalues) != 2:
-                self.logger.warning('Skipping %s as it is not a valid treatment-control group', row)
+                self.logger.warning('Skipping as it is not a valid treatment-control group')
                 continue
             if not (0 in treatvalues and 1 in treatvalues):
                 log_and_raise_error(self.logger, f'The treatment column {self.treatment_col} must be 0 and 1')
@@ -645,6 +645,13 @@ class ExperimentAnalyzer:
         pooled_standard_error = np.sqrt(1 / np.sum(weights))
         relative_estimate = np.sum(weights * data['relative_effect']) / np.sum(weights)
 
+        # pvalue
+        np.seterr(invalid='ignore')
+        try:
+            pvalue = stats.norm.sf(abs(absolute_estimate / pooled_standard_error)) * 2
+        except FloatingPointError:
+            pvalue = np.nan
+
         results = {
             'experiments': int(data.shape[0]),
             'treated_units': int(data['treated_units'].sum()),
@@ -652,7 +659,7 @@ class ExperimentAnalyzer:
             'absolute_effect': absolute_estimate,
             'relative_effect': relative_estimate,
             'standard_error': pooled_standard_error,
-            'pvalue': stats.norm.sf(abs(absolute_estimate / pooled_standard_error)) * 2
+            'pvalue': pvalue
         }
 
         if 'balance' in data.columns:
