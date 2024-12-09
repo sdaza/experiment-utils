@@ -592,12 +592,14 @@ class ExperimentAnalyzer:
 
         self._results = self.__transform_tuple_column(clean_results, 'experiment', self.experiment_identifier)
 
-    def combine_effects(self, grouping_cols: List = None):
+    def combine_effects(self, data: pd.DataFrame = None, grouping_cols: List = None):
         """
         Combine effects across experiments using fixed effects meta-analysis.
 
         Parameters
         ----------
+        data : pd.DataFrame, optional
+            The DataFrame containing the results. Defaults to self._results
         grouping_cols : list, optional
             The columns to group by. Defaults to experiment_identifer + ['outcome']
         effect : str, optional
@@ -608,6 +610,9 @@ class ExperimentAnalyzer:
         A Pandas DataFrame with combined results
         """
 
+        if data is None:
+            data = self._results
+
         if grouping_cols is None:
             self.logger.warning('No grouping columns specified, using only outcome!')
             grouping_cols = ['outcome']
@@ -616,17 +621,17 @@ class ExperimentAnalyzer:
             if 'outcome' not in grouping_cols:
                 grouping_cols.append('outcome')
 
-        if any(self._results.groupby(grouping_cols).size() < 2):
+        if any(data.groupby(grouping_cols).size() < 2):
             log_and_raise_error(self.logger, 'Cannot combine results if there is only one experiment!')
 
-        pooled_results = self._results.groupby(grouping_cols).apply(
+        pooled_results = data.groupby(grouping_cols).apply(
             lambda df: pd.Series(self.__get_fixed_meta_analysis_estimate(df))
         ).reset_index()
 
         result_columns = grouping_cols + ['experiments', 'treated_units', 'control_units',
                                           'absolute_effect', 'relative_effect', 'stat_significance',
                                           'standard_error', 'pvalue']
-        if 'balance' in self._results.columns:
+        if 'balance' in data.columns:
             index_to_insert = len(grouping_cols)
             result_columns.insert(index_to_insert+1, 'balance')
         pooled_results['stat_significance'] = pooled_results['stat_significance'].astype(int)
