@@ -93,20 +93,20 @@ class PowerSim:
                 log_and_raise_error(self.logger, 'Compliance rates should be same length as the number of self.variants or length 1!')
             compliance = list(itertools.repeat(compliance[0], self.variants))
 
-        if len(standard_deviation) != self.variants+1:
+        if len(standard_deviation) != self.variants + 1:
             if len(standard_deviation) > 1:
-                log_and_raise_error(self.logger, 'Standard deviations should be same length as the number of self.variants+1 or length 1!')
-            standard_deviation = list(itertools.repeat(standard_deviation[0], self.variants+1))
+                log_and_raise_error(self.logger, 'Standard deviations should be same length as the number of self.variants + 1 or length 1!')
+            standard_deviation = list(itertools.repeat(standard_deviation[0], self.variants + 1))
 
-        if len(sample_size) != self.variants+1:
+        if len(sample_size) != self.variants + 1:
             if len(sample_size) > 1:
-                log_and_raise_error(self.logger, 'N should be same length as the number of self.variants+1 or length 1!')
-            sample_size = list(itertools.repeat(sample_size[0], self.variants+1))
+                log_and_raise_error(self.logger, 'N should be same length as the number of self.variants + 1 or length 1!')
+            sample_size = list(itertools.repeat(sample_size[0], self.variants + 1))
 
-        if len(baseline) != self.variants+1:
+        if len(baseline) != self.variants + 1:
             if len(baseline) > 1:
-                log_and_raise_error(self.logger, 'Baseline values should be same length as the number of self.variants+1 or length 1!')
-            baseline = list(itertools.repeat(baseline[0], self.variants+1))
+                log_and_raise_error(self.logger, 'Baseline values should be same length as the number of self.variants + 1 or length 1!')
+            baseline = list(itertools.repeat(baseline[0], self.variants + 1))
 
         re = list(range(self.variants))
 
@@ -123,11 +123,11 @@ class PowerSim:
 
             for i in range(self.variants):
                 if self.relative_effect:
-                    re[i] = baseline[i+1] * (1.00 + effect[i])
+                    re[i] = baseline[i + 1] * (1.00 + effect[i])
                 else:
-                    re[i] = baseline[i+1] + effect[i]
-                t_data_c = np.random.poisson(re[i], int(np.round(sample_size[i+1] * compliance[i])))
-                t_data_nc = np.random.poisson(baseline[i+1], int(np.round(sample_size[i+1] * (1 - compliance[i]))))
+                    re[i] = baseline[i + 1] + effect[i]
+                t_data_c = np.random.poisson(re[i], int(np.round(sample_size[i + 1] * compliance[i])))
+                t_data_nc = np.random.poisson(baseline[i + 1], int(np.round(sample_size[i + 1] * (1 - compliance[i]))))
                 t_data = np.append(t_data_c, t_data_nc)
                 dd = np.append(dd, t_data)
                 vv = np.append(vv, list(itertools.repeat(i + 1, len(t_data))))
@@ -139,12 +139,12 @@ class PowerSim:
 
             for i in range(self.variants):
                 if self.relative_effect:
-                    re[i] = baseline[i+1] * (1.00 + effect[i])
+                    re[i] = baseline[i + 1] * (1.00 + effect[i])
                 else:
-                    re[i] = baseline[i+1] + effect[i]
+                    re[i] = baseline[i + 1] + effect[i]
 
-                t_data_c = np.random.binomial(n=1, size=int(np.round(sample_size[i+1] * compliance[i])), p=re[i])
-                t_data_nc = np.random.binomial(n=1, size=int(np.round(sample_size[i+1] * (1 - compliance[i]))), p=baseline[i+1])
+                t_data_c = np.random.binomial(n=1, size=int(np.round(sample_size[i + 1] * compliance[i])), p=re[i])
+                t_data_nc = np.random.binomial(n=1, size=int(np.round(sample_size[i + 1] * (1 - compliance[i]))), p=baseline[i + 1])
                 t_data = np.append(t_data_c, t_data_nc)
                 dd = np.append(dd, t_data)
                 vv = np.append(vv, list(itertools.repeat(i + 1, len(t_data))))
@@ -156,19 +156,19 @@ class PowerSim:
 
             for i in range(self.variants):
                 if self.relative_effect:
-                    re[i] = baseline[i+1] * (1.00 + effect[i])
+                    re[i] = baseline[i + 1] * (1.00 + effect[i])
                 else:
-                    re[i] = baseline[i+1] + effect[i]
+                    re[i] = baseline[i + 1] + effect[i]
 
-                t_data_c = np.random.normal(re[i], standard_deviation[i+1], int(np.round(sample_size[i+1] * compliance[i])))
-                t_data_nc = np.random.normal(baseline[i+1], standard_deviation[i+1], int(np.round(sample_size[i+1] * (1 - compliance[i]))))
+                t_data_c = np.random.normal(re[i], standard_deviation[i + 1], int(np.round(sample_size[i + 1] * compliance[i])))
+                t_data_nc = np.random.normal(baseline[i + 1], standard_deviation[i + 1], int(np.round(sample_size[i + 1] * (1 - compliance[i]))))
 
                 t_data = np.append(t_data_c, t_data_nc)
                 dd = np.append(dd, t_data)
                 vv = np.append(vv, list(itertools.repeat(i + 1, len(t_data))))
 
         return dd, vv
-    
+
     def get_power(self, baseline=[1.0], effect=[0.10], sample_size=[1000], compliance=[1.0], standard_deviation=[1]):
         '''
         Estimate power using simulation.
@@ -192,9 +192,6 @@ class PowerSim:
         '''
 
         # create empty values for results
-        results = []
-        ncomparisons = len(self.comparisons)
-
         pvalues = {}
         for c in range(len(self.comparisons)):
             pvalues[c] = []
@@ -203,8 +200,8 @@ class PowerSim:
         for i in range(self.nsim):
             # y = output, x = index of condition
             y, x = self.__run_experiment(baseline=baseline, effect=effect,
-                                       sample_size=sample_size, compliance=compliance,
-                                       standard_deviation=standard_deviation)
+                                         sample_size=sample_size, compliance=compliance,
+                                         standard_deviation=standard_deviation)
 
             # iterate over variants
             l_pvalues = []
@@ -248,12 +245,11 @@ class PowerSim:
             }
 
             if self.correction in correction_methods:
-                significant = correction_methods[self.correction](np.array(l_pvalues), self.alpha/pvalue_adjustment[self.alternative])
+                significant = correction_methods[self.correction](np.array(l_pvalues), self.alpha / pvalue_adjustment[self.alternative])
 
             for v, p in enumerate(significant):
                 pvalues[v].append(p)
 
-        # results.append(int(np.sum(pvalues)) >= len(self.comparisons))
         power = pd.DataFrame(pd.DataFrame(pvalues).mean()).reset_index()
         power.columns = ['comparisons', 'power']
         power['comparisons'] = power['comparisons'].map(dict(enumerate(self.comparisons)))
@@ -284,7 +280,7 @@ class PowerSim:
         """
 
         pdict = {'baseline': baseline_rates, 'effect': effects, 'sample_size': sample_sizes,
-                'compliance': compliances, 'standard_deviation': standard_deviations}
+                 'compliance': compliances, 'standard_deviation': standard_deviations}
         grid = self.__expand_grid(pdict)
 
         parameters = list(grid.itertuples(index=False, name=None))
@@ -314,7 +310,7 @@ class PowerSim:
 
         results['index'] = index
         results = results.pivot(index=['index'], columns=['comparisons'], values=['power'])
-        results.columns = [str((i,j)) for i,j in self.comparisons]
+        results.columns = [str((i, j)) for i, j in self.comparisons]
 
         grid = pd.concat([grid, results], axis=1)
         grid.sample_size = grid.sample_size.map(str)
@@ -328,10 +324,10 @@ class PowerSim:
         Plot statistical power by scenario
         '''
 
-        value_vars = [str((i,j)) for i,j in self.comparisons]
+        value_vars = [str((i, j)) for i, j in self.comparisons]
 
         cols = ['baseline', 'effect', 'sample_size', 'compliance', 'standard_deviation',
-            'variants', 'comparisons', 'nsim', 'alpha', 'alternative', 'metric', 'relative_effect']
+                'variants', 'comparisons', 'nsim', 'alpha', 'alternative', 'metric', 'relative_effect']
 
         temp = pd.melt(data, id_vars=cols, var_name='comparison', value_name='power', value_vars=value_vars)
 
@@ -352,7 +348,7 @@ class PowerSim:
         Auxiliary function to expand a dictionary
         '''
         return pd.DataFrame([row for row in itertools.product(*dictionary.values())],
-            columns=dictionary.keys())
+                            columns=dictionary.keys())
 
     def bonferroni(self, pvals, alpha=0.05):
         """A function for controlling the FWER at some level alpha using the
@@ -370,7 +366,7 @@ class PowerSim:
             True if a hypothesis is rejected, False if not.
         """
         m, pvals = len(pvals), np.asarray(pvals)
-        return pvals < alpha/float(m)
+        return pvals < alpha / float(m)
 
     def hochberg(self, pvals, alpha=0.05):
         """A function for controlling the FWER using Hochberg's procedure.
@@ -391,7 +387,7 @@ class PowerSim:
         # sort the p-values into ascending order
         ind = np.argsort(pvals)
 
-        test = [p <= alpha/(m+1-(k+1)) for k, p in enumerate(pvals[ind])]
+        test = [p <= alpha / (m + 1 - (k + 1)) for k, p in enumerate(pvals[ind])]
         significant = np.zeros(np.shape(pvals), dtype='bool')
         significant[ind[0:np.sum(test)]] = True
         return significant
@@ -415,12 +411,12 @@ class PowerSim:
 
         m, pvals = len(pvals), np.asarray(pvals)
         ind = np.argsort(pvals)
-        test = [p > alpha/(m+1-k) for k, p in enumerate(pvals[ind])]
+        test = [p > alpha / (m + 1 - k) for k, p in enumerate(pvals[ind])]
 
-        """The minimal index k is m-np.sum(test)+1 and the hypotheses 1, ..., k-1
+        """The minimal index k is m-np.sum(test) + 1 and the hypotheses 1, ..., k-1
         are rejected. Hence m-np.sum(test) gives the correct number."""
         significant = np.zeros(np.shape(pvals), dtype='bool')
-        significant[ind[0:m-np.sum(test)]] = True
+        significant[ind[0:m - np.sum(test)]] = True
         return significant
 
     def sidak(self, pvals, alpha=0.05):
@@ -440,7 +436,7 @@ class PowerSim:
             True if a hypothesis is rejected, False if not.
         """
         n, pvals = len(pvals), np.asarray(pvals)
-        return pvals < 1. - (1.-alpha) ** (1./n)
+        return pvals < 1. - (1. - alpha) ** (1. / n)
 
     def lsu(self, pvals, q=0.05):
         """The (non-adaptive) one-stage linear step-up procedure (LSU) for
@@ -462,8 +458,8 @@ class PowerSim:
 
         m = len(pvals)
         sort_ind = np.argsort(pvals)
-        k = [i for i, p in enumerate(pvals[sort_ind]) if p < (i+1.)*q/m]
+        k = [i for i, p in enumerate(pvals[sort_ind]) if p < (i + 1.) * q / m]
         significant = np.zeros(m, dtype='bool')
         if k:
-            significant[sort_ind[0:k[-1]+1]] = True
+            significant[sort_ind[0:k[-1] + 1]] = True
         return significant

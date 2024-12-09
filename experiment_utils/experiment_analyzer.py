@@ -97,13 +97,8 @@ class ExperimentAnalyzer:
                 log_and_raise_error(self.logger, "Regression covariates should be a subset of covariates")
 
         # check if all required columns are present
-        required_columns = (
-            self.experiment_identifier +
-            [self.treatment_col] +
-            self.outcomes +
-            self.covariates +
-            ([self.instrument_col] if self.instrument_col is not None else [])
-        )
+        required_columns = (self.experiment_identifier + [self.treatment_col] + self.outcomes +
+                            self.covariates + ([self.instrument_col] if self.instrument_col is not None else []))
 
         missing_columns = set(required_columns) - set(self.data.columns)
 
@@ -199,7 +194,7 @@ class ExperimentAnalyzer:
             "treated_units": data[self.treatment_col].sum(),
             "control_units": data[self.treatment_col].count() - data[self.treatment_col].sum(),
             "control_value": intercept,
-            "treatment_value": intercept+coefficient,
+            "treatment_value": intercept + coefficient,
             "absolute_effect": coefficient,
             "relative_effect": relative_effect,
             "standard_error": standard_error,
@@ -243,7 +238,7 @@ class ExperimentAnalyzer:
             "treated_units": data[self.treatment_col].sum().astype(int),
             "control_units": (data[self.treatment_col].count() - data[self.treatment_col].sum()).astype(int),
             "control_value": intercept,
-            "treatment_value": intercept+coefficient,
+            "treatment_value": intercept + coefficient,
             "absolute_effect": coefficient,
             "relative_effect": relative_effect,
             "standard_error": standard_error,
@@ -286,7 +281,7 @@ class ExperimentAnalyzer:
             "treated_units": data[self.treatment_col].sum().astype(int),
             "control_units": (data[self.treatment_col].count() - data[self.treatment_col].sum()).astype(int),
             "control_value": intercept,
-            "treatment_value": intercept+coefficient,
+            "treatment_value": intercept + coefficient,
             "absolute_effect": coefficient,
             "relative_effect": relative_effect,
             "standard_error": standard_error,
@@ -633,7 +628,7 @@ class ExperimentAnalyzer:
                                           'standard_error', 'pvalue']
         if 'balance' in data.columns:
             index_to_insert = len(grouping_cols)
-            result_columns.insert(index_to_insert+1, 'balance')
+            result_columns.insert(index_to_insert + 1, 'balance')
         pooled_results['stat_significance'] = pooled_results['stat_significance'].astype(int)
 
         self.logger.info('Combining effects using fixed-effects meta-analysis!')
