@@ -1,18 +1,28 @@
+"""
+Spark instance
+"""
+
 from pyspark.sql import SparkSession
 
 
-_spark_ctx = None
+class SparkInstance:
+    """Singleton class to create a Spark session"""
+    _instance = None
+    spark: SparkSession = None
 
-def get_spark():
-    '''
-    Get or create a spark session
-    '''
-    global _spark_ctx
-    if _spark_ctx is None:
-        _spark_ctx = (
-            SparkSession.builder.master('local').appName('pipeline')
-            .getOrCreate()
-        )
-    return(_spark_ctx)
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(SparkInstance, cls).__new__(cls)
+            cls._instance.spark = (
+                SparkSession.builder.master('local').appName('experiment_utils')
+                .getOrCreate()
+            )
+        return cls._instance
 
-spark = get_spark()
+    def get_spark(self):
+        """Get the Spark session"""
+        return self.spark
+
+
+spark_instance = SparkInstance()
+spark = spark_instance.get_spark()

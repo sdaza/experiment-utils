@@ -3,24 +3,23 @@ PowerSim class for simulation of power analysis.
 """
 
 import logging
+import itertools
 import pandas as pd
 import numpy as np
-import itertools
-
 import matplotlib.pyplot as plt
 import seaborn as sns
 from multiprocess.pool import ThreadPool
-import scipy.stats as stats
-
+from scipy import stats
 import statsmodels.api as sm
-from statsmodels.stats.proportion import proportions_ztest as prop_test
-from statsmodels.stats.weightstats import ttest_ind as ttest
 from .utils import log_and_raise_error
 
 
 class PowerSim:
-    def __init__(self, metric='proportion', relative_effect=False, nsim=100, 
-                 variants=None, comparisons=None, alternative='two-tailed', alpha=0.05, 
+    """"
+    PowerSim class for simulation of power analysis.
+    """
+    def __init__(self, metric='proportion', relative_effect=False, nsim=100,
+                 variants=None, comparisons=None, alternative='two-tailed', alpha=0.05,
                  correction='bonferroni', fdr_method='indep'):
         """
         PowerSim class for simulation of power analysis.
@@ -45,13 +44,13 @@ class PowerSim:
             Type of correction: 'bonferroni', 'holm', 'fdr' or None
         fdr_method : 'indep' | 'negcorr'
             If 'indep' it implements Benjamini/Hochberg for independent or if
-            'negcorr' it corresponds to Benjamini/Yekutieli.         
+            'negcorr' it corresponds to Benjamini/Yekutieli.
         """
 
         self.metric = metric
         self.relative_effect = relative_effect
         self.variants = variants
-        self.comparisons = list(itertools.combinations(range(self.variants+1), 2)) if comparisons is None else comparisons
+        self.comparisons = list(itertools.combinations(range(self.variants + 1), 2)) if comparisons is None else comparisons
         self.nsim = nsim
         self.alternative = alternative
         self.alpha = alpha
@@ -59,10 +58,8 @@ class PowerSim:
         self.fdr_method = fdr_method
         self.logger = logging.getLogger('Power Simulator')
         self.logger.setLevel(logging.INFO)
-    
-    
-    # simulate data
-    def __run_experiment(self, baseline=[1.0], sample_size=[100], effect=[0.10], 
+
+    def __run_experiment(self, baseline=[1.0], sample_size=[100], effect=[0.10],
                          compliance=[1.0], standard_deviation=[1]):
         """
         Simulate data to run power analysis.
@@ -87,27 +84,27 @@ class PowerSim:
 
         # initial checks
         if len(effect) != self.variants:
-            if len(effect)>1:
+            if len(effect) > 1:
                 log_and_raise_error(self.logger, 'Effects should be same length as the number of self.variants or length 1!')
             effect = list(itertools.repeat(effect[0], self.variants))
 
         if len(compliance) != self.variants:
-            if len(compliance)>1:
+            if len(compliance) > 1:
                 log_and_raise_error(self.logger, 'Compliance rates should be same length as the number of self.variants or length 1!')
             compliance = list(itertools.repeat(compliance[0], self.variants))
-        
+
         if len(standard_deviation) != self.variants+1:
-            if len(standard_deviation)>1:
+            if len(standard_deviation) > 1:
                 log_and_raise_error(self.logger, 'Standard deviations should be same length as the number of self.variants+1 or length 1!')
             standard_deviation = list(itertools.repeat(standard_deviation[0], self.variants+1))
-        
+
         if len(sample_size) != self.variants+1:
-            if len(sample_size)>1:
+            if len(sample_size) > 1:
                 log_and_raise_error(self.logger, 'N should be same length as the number of self.variants+1 or length 1!')
             sample_size = list(itertools.repeat(sample_size[0], self.variants+1))
 
         if len(baseline) != self.variants+1:
-            if len(baseline)>1:
+            if len(baseline) > 1:
                 log_and_raise_error(self.logger, 'Baseline values should be same length as the number of self.variants+1 or length 1!')
             baseline = list(itertools.repeat(baseline[0], self.variants+1))
 
@@ -115,7 +112,7 @@ class PowerSim:
 
         # outputs
         dd = np.array([])
-        
+
         # index of condition
         vv = np.array([])
 
@@ -171,11 +168,10 @@ class PowerSim:
                 vv = np.append(vv, list(itertools.repeat(i + 1, len(t_data))))
 
         return dd, vv
-
-
+    
     def get_power(self, baseline=[1.0], effect=[0.10], sample_size=[1000], compliance=[1.0], standard_deviation=[1]):
         '''
-        Estimate power using simulation. 
+        Estimate power using simulation.
 
         Parameters
         ----------
@@ -198,7 +194,7 @@ class PowerSim:
         # create empty values for results
         results = []
         ncomparisons = len(self.comparisons)
-        
+
         pvalues = {}
         for c in range(len(self.comparisons)):
             pvalues[c] = []
@@ -206,8 +202,8 @@ class PowerSim:
         # iterate over simulations
         for i in range(self.nsim):
             # y = output, x = index of condition
-            y, x = self.__run_experiment(baseline=baseline, effect=effect, 
-                                       sample_size=sample_size, compliance=compliance, 
+            y, x = self.__run_experiment(baseline=baseline, effect=effect,
+                                       sample_size=sample_size, compliance=compliance,
                                        standard_deviation=standard_deviation)
 
             # iterate over variants
@@ -216,12 +212,12 @@ class PowerSim:
 
                 # getting pvalues
                 if self.metric == 'count':
-                    
+
                     ty = np.append(y[np.isin(x, j)], y[np.isin(x, h)])
                     tx = np.append(x[np.isin(x, j)], x[np.isin(x, h)])
                     tx[np.isin(tx, j)] = 0
                     tx[np.isin(tx, h)] = 1
-                    
+
                     model = sm.Poisson(ty, sm.add_constant(tx))
                     pm = model.fit(disp=False)
                     pvalue = pm.pvalues[1]
@@ -229,9 +225,9 @@ class PowerSim:
 
                 elif self.metric == 'proportion':
                     z, pvalue = sm.stats.proportions_ztest(
-                        [np.sum(y[np.isin(x, h)]), np.sum(y[np.isin(x, j)])], 
+                        [np.sum(y[np.isin(x, h)]), np.sum(y[np.isin(x, j)])],
                         [len(y[np.isin(x, h)]), len(y[np.isin(x, j)])])
-                    
+
                 elif self.metric == 'average':
                     z, pvalue = stats.ttest_ind(y[np.isin(x, h)], y[np.isin(x, j)], equal_var=False)
 
@@ -256,17 +252,16 @@ class PowerSim:
 
             for v, p in enumerate(significant):
                 pvalues[v].append(p)
-   
+
         # results.append(int(np.sum(pvalues)) >= len(self.comparisons))
         power = pd.DataFrame(pd.DataFrame(pvalues).mean()).reset_index()
         power.columns = ['comparisons', 'power']
         power['comparisons'] = power['comparisons'].map(dict(enumerate(self.comparisons)))
-        
+
         return power
 
-
     def grid_sim_power(self, baseline_rates=None, effects=None, sample_sizes=None,
-                    compliances=[[1]], standard_deviations=[[1]], threads=3, plot=False):
+                       compliances=[[1]], standard_deviations=[[1]], threads=3, plot=False):
         """
         Return Pandas DataFrame with parameter combinations and statistical power
 
@@ -285,15 +280,15 @@ class PowerSim:
         threads : int
             Number of threads for parallelization.
         plot : bool
-            Whether to plot the results.       
+            Whether to plot the results.
         """
 
         pdict = {'baseline': baseline_rates, 'effect': effects, 'sample_size': sample_sizes,
                 'compliance': compliances, 'standard_deviation': standard_deviations}
         grid = self.__expand_grid(pdict)
-        
+
         parameters = list(grid.itertuples(index=False, name=None))
-        
+
         grid['nsim'] = self.nsim
         grid['alpha'] = self.alpha
         grid['alternative'] = self.alternative
@@ -310,17 +305,17 @@ class PowerSim:
 
         results = pd.concat(results)
 
-        # create index 
+        # create index
         index = []
-        repeating_number = grid.shape[0]    
+        repeating_number = grid.shape[0]
         repeating_count = len(self.comparisons)
         for i in range(0, repeating_number):
             index.extend([i] * repeating_count)
-    
+
         results['index'] = index
         results = results.pivot(index=['index'], columns=['comparisons'], values=['power'])
         results.columns = [str((i,j)) for i,j in self.comparisons]
-        
+
         grid = pd.concat([grid, results], axis=1)
         grid.sample_size = grid.sample_size.map(str)
         grid.effect = grid.effect.map(str)
@@ -328,8 +323,6 @@ class PowerSim:
             self.plot_power(grid)
         return grid
 
-
-    # plot power simulation
     def plot_power(self, data):
         '''
         Plot statistical power by scenario
@@ -339,7 +332,7 @@ class PowerSim:
 
         cols = ['baseline', 'effect', 'sample_size', 'compliance', 'standard_deviation',
             'variants', 'comparisons', 'nsim', 'alpha', 'alternative', 'metric', 'relative_effect']
-        
+
         temp = pd.melt(data, id_vars=cols, var_name='comparison', value_name='power', value_vars=value_vars)
 
         d_relative_effect = {True: 'relative', False: 'absolute'}
@@ -354,17 +347,13 @@ class PowerSim:
             plt.setp(plot.get_xticklabels(), rotation=45)
             plt.show()
 
-
-    # create grid dataframe
     def __expand_grid(self, dictionary):
         '''
         Auxiliary function to expand a dictionary
         '''
-        return pd.DataFrame([row for row in itertools.product(*dictionary.values())], 
+        return pd.DataFrame([row for row in itertools.product(*dictionary.values())],
             columns=dictionary.keys())
-    
 
-    # pvalue adjustment functions 
     def bonferroni(self, pvals, alpha=0.05):
         """A function for controlling the FWER at some level alpha using the
         classical Bonferroni procedure.
@@ -376,13 +365,12 @@ class PowerSim:
         alpha: float
             The desired family-wise error rate.
 
-        Output: 
+        Output:
         significant: array, bool
             True if a hypothesis is rejected, False if not.
         """
         m, pvals = len(pvals), np.asarray(pvals)
         return pvals < alpha/float(m)
-
 
     def hochberg(self, pvals, alpha=0.05):
         """A function for controlling the FWER using Hochberg's procedure.
@@ -403,13 +391,10 @@ class PowerSim:
         # sort the p-values into ascending order
         ind = np.argsort(pvals)
 
-        """Here we have k+1 (and not just k) since Python uses zero-based
-        indexing."""
         test = [p <= alpha/(m+1-(k+1)) for k, p in enumerate(pvals[ind])]
         significant = np.zeros(np.shape(pvals), dtype='bool')
         significant[ind[0:np.sum(test)]] = True
         return significant
-
 
     def holm_bonferroni(self, pvals, alpha=0.05):
         """A function for controlling the FWER using the Holm-Bonferroni
@@ -421,7 +406,7 @@ class PowerSim:
             Set of p-values of the individual tests.
         alpha: float
             The desired family-wise error rate.
-        
+
         Output
         -------
         significant: array, bool
@@ -437,7 +422,6 @@ class PowerSim:
         significant = np.zeros(np.shape(pvals), dtype='bool')
         significant[ind[0:m-np.sum(test)]] = True
         return significant
-
 
     def sidak(self, pvals, alpha=0.05):
         """A function for controlling the FWER at some level alpha using the
@@ -458,7 +442,6 @@ class PowerSim:
         n, pvals = len(pvals), np.asarray(pvals)
         return pvals < 1. - (1.-alpha) ** (1./n)
 
-
     def lsu(self, pvals, q=0.05):
         """The (non-adaptive) one-stage linear step-up procedure (LSU) for
         controlling the false discovery rate, i.e. the classic FDR method
@@ -466,7 +449,7 @@ class PowerSim:
 
         Parameters
         ----------
-        pvals: array_like  
+        pvals: array_like
             Set of p-values of the individual tests.
         q: float
             The desired false discovery rate.

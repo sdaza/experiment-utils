@@ -30,6 +30,13 @@ jobs:
       run: |
         poetry install
 
+    # - name: Linting
+    #   run: |
+    #     # Install flake8
+    #     pip install flake8
+    #     # Run flake8
+    #     flake8 . --ignore=E501
+
     - name: Run tests
       run: |
         poetry run pytest tests/  # Adjust the path to your test directory
