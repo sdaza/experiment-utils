@@ -47,6 +47,8 @@ class PowerSim:
             'negcorr' it corresponds to Benjamini/Yekutieli.
         """
 
+        self.logger = logging.getLogger('Power Simulator')
+        self.logger.setLevel(logging.INFO)
         self.metric = metric
         self.relative_effect = relative_effect
         self.variants = variants
@@ -56,8 +58,6 @@ class PowerSim:
         self.alpha = alpha
         self.correction = correction
         self.fdr_method = fdr_method
-        self.logger = logging.getLogger('Power Simulator')
-        self.logger.setLevel(logging.INFO)
 
     def __run_experiment(self, baseline=[1.0], sample_size=[100], effect=[0.10],
                          compliance=[1.0], standard_deviation=[1]):

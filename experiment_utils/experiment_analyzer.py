@@ -622,7 +622,7 @@ class ExperimentAnalyzer:
                 grouping_cols.append('outcome')
 
         if any(data.groupby(grouping_cols).size() < 2):
-            log_and_raise_error(self.logger, 'Cannot combine results if there is only one experiment!')
+            self.logger.warning('There are some combinations with only one experiment!')
 
         pooled_results = data.groupby(grouping_cols).apply(
             lambda df: pd.Series(self.__get_fixed_meta_analysis_estimate(df))
