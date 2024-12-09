@@ -1,9 +1,6 @@
 import pytest
-from pyspark.sql import functions as F
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 from experiment_utils.experiment_analyzer import ExperimentAnalyzer
 from experiment_utils.spark_instance import *
-
 import numpy as np
 import pandas as pd
 from scipy.stats import truncnorm
@@ -44,7 +41,7 @@ def sample_data(
     model_conversion = (
         base_model_conversion + model_treatment_effect * model_treatment
     ) > np.random.rand(n_model)
-    
+
     model_data = pd.DataFrame(
         {
             "experiment": 123,
@@ -88,7 +85,7 @@ def test_no_covariates(sample_data):
         outcomes=outcomes,
         treatment_col=treatment_col,
         experiment_identifier=experiment_identifier)
-    
+
     try:
         analyzer.get_effects()
         analyzer.results
@@ -132,7 +129,7 @@ def test_ipw_adjustment(sample_data):
         outcomes=outcomes,
         treatment_col=treatment_col,
         experiment_identifier=experiment_identifier,
-        covariates=covariates, 
+        covariates=covariates,
         adjustment="IPW"
     )
 

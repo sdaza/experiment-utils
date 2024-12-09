@@ -30,12 +30,12 @@ jobs:
       run: |
         poetry install
 
-    # - name: Linting
-    #   run: |
-    #     # Install flake8
-    #     pip install flake8
-    #     # Run flake8
-    #     flake8 . --ignore=E501
+    - name: Linting
+      run: |
+        # Install flake8
+        pip install flake8
+        # Run flake8
+        flake8 . --ignore=E501,F401,F403,F405,W504
 
     - name: Run tests
       run: |
