@@ -50,7 +50,7 @@ class PowerSim:
         self.metric = metric
         self.relative_effect = relative_effect
         self.variants = variants
-        self.comparisons = list(itertools.combinations(range(self.variants+1), 2)) if comparisons is None else comparisons
+        self.comparisons = list(itertools.combinations(range(self.variants + 1), 2)) if comparisons is None else comparisons
         self.nsim = nsim
         self.alternative = alternative
         self.alpha = alpha
