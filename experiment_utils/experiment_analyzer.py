@@ -491,7 +491,7 @@ class ExperimentAnalyzer:
 
             treatvalues = set(temp_pd[self.treatment_col].unique())
             if len(treatvalues) != 2:
-                self.logger.warning('Skipping as it is not a valid treatment-control group')
+                self.logger.warning('Skipping as it is not a valid treatment-control group!')
                 continue
             if not (0 in treatvalues and 1 in treatvalues):
                 log_and_raise_error(self.logger, f'The treatment column {self.treatment_col} must be 0 and 1')
