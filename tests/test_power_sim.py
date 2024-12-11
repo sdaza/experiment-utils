@@ -13,6 +13,7 @@ def test_power_estimation():
     except Exception as e:
         pytest.fail(f" raised an exception: {e}")
 
+
 def test_plot_power():
     """Test plot power"""
     p = PowerSim(metric='proportion', relative_effect=False,
@@ -20,10 +21,10 @@ def test_plot_power():
                  nsim=100, correction='holm')
     try:
         p.grid_sim_power(baseline_rates=[[0.33]],
-                    effects=[[0.01, 0.03], [0.03, 0.05], [0.03, 0.07]],
-                    sample_sizes= [[1000], [5000], [9000]],
-                    threads=16,
-                    plot=True)
+                         effects=[[0.01, 0.03], [0.03, 0.05], [0.03, 0.07]],
+                         sample_sizes=[[1000], [5000], [9000]],
+                         threads=16,
+                         plot=True)
         assert True
     except Exception as e:
         pytest.fail(f" raised an exception: {e}")
