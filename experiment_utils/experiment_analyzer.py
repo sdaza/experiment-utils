@@ -35,7 +35,7 @@ class ExperimentAnalyzer:
         instrument_col: str = None,
         alpha: float = 0.05,
         regression_covariates: List = None,
-            assess_overlap=False):
+        assess_overlap=False):
 
         """
         Initialize ExperimentAnalyzer
@@ -176,14 +176,14 @@ class ExperimentAnalyzer:
         """
 
         formula_dict = {
-            'regression': f"{outcome_variable} ~ {self.treatment_col}",
+            'regression': f"{outcome_variable} ~ 1 + {self.treatment_col}",
             'iv': f"{outcome_variable} ~ 1 + [{self.treatment_col} ~ {self.instrument_col}]"
         }
         reg_covs = list(set(self.final_covariates) & set(self.regression_covariates))
 
         if len(reg_covs) > 0:
             zreg_covs = [f"z_{cov}" for cov in reg_covs]
-            formula = formula_dict[type] + ' + '.join(zreg_covs)
+            formula = formula_dict[type] +  ' + ' + ' + '.join(zreg_covs)
         else:
             formula = formula_dict[type]
 
