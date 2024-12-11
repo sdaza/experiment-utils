@@ -35,7 +35,7 @@ class ExperimentAnalyzer:
         instrument_col: str = None,
         alpha: float = 0.05,
         regression_covariates: List = None,
-            assess_overlap=False):
+        assess_overlap=False):
 
         """
         Initialize ExperimentAnalyzer
@@ -94,6 +94,10 @@ class ExperimentAnalyzer:
         # dataframe is empty
         if self.data.isEmpty():
             log_and_raise_error(self.logger, "Dataframe is empty!")
+
+        # impute covariates from regression covariates
+        if (len(self.covariates) == 0) & (len(self.regression_covariates) > 0):
+            self.covariates = self.regression_covariates
 
         # regression covariates has to be a subset of covariates
         if len(self.regression_covariates) > 0:
@@ -166,6 +170,25 @@ class ExperimentAnalyzer:
             data[f"z_{covariate}"] = (data[covariate] - data[covariate].mean()) / data[covariate].std()
         return data
 
+    def __create_formula(self, outcome_variable, type: str ='regression'):
+        """
+        Create formula for final regression model
+        """
+
+        formula_dict = {
+            'regression':f"{outcome_variable} ~ {self.treatment_col}",
+            'iv': f"{outcome_variable} ~ 1 + [{self.treatment_col} ~ {self.instrument_col}]"
+        }
+        reg_covs = list(set(self.final_covariates) & set(self.regression_covariates))
+
+        if len(reg_covs) > 0:
+            zreg_covs = [f"z_{cov}" for cov in reg_covs]
+            formula = formula_dict[type] + ' + '.join(zreg_covs)
+        else:
+            formula = formula_dict[type]
+
+        return formula
+
     def linear_regression(self, data: pd.DataFrame, outcome_variable: str) -> Dict:
         """
         Runs a linear regression of the outcome variable on the treatment variable.
@@ -183,7 +206,7 @@ class ExperimentAnalyzer:
             Regression results
         """
 
-        formula = f"{outcome_variable} ~ {self.treatment_col}"
+        formula = self.__create_formula(outcome_variable=outcome_variable)
         model = smf.ols(formula, data=data)
         results = model.fit(cov_type="HC3")
 
@@ -223,7 +246,7 @@ class ExperimentAnalyzer:
             Regression results
         """
 
-        formula = f"{outcome_variable} ~ 1 + {self.treatment_col}"
+        formula = self.__create_formula(outcome_variable=outcome_variable)
         model = smf.wls(
             formula,
             data=data,
@@ -270,7 +293,7 @@ class ExperimentAnalyzer:
         if not self.instrument_col:
             log_and_raise_error(self.logger, "Instrument column must be specified for IV adjustment")
 
-        formula = f"{outcome_variable} ~ 1 + [{self.treatment_col} ~ {self.instrument_col}]"
+        formula = self.__create_formula(outcome_variable=outcome_variable, type='iv')
         model = IV2SLS.from_formula(formula, data)
         results = model.fit(cov_type='robust')
 
