@@ -183,7 +183,7 @@ class ExperimentAnalyzer:
 
         if len(reg_covs) > 0:
             zreg_covs = [f"z_{cov}" for cov in reg_covs]
-            formula = formula_dict[type] + ' + '.join(zreg_covs)
+            formula = formula_dict[type] +  ' + ' + ' + '.join(zreg_covs)
         else:
             formula = formula_dict[type]
 
