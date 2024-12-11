@@ -91,6 +91,10 @@ class ExperimentAnalyzer:
 
     def __check_input(self):
 
+        # dataframe is empty
+        if self.data.isEmpty():
+            log_and_raise_error(self.logger, "Dataframe is empty!")
+
         # regression covariates has to be a subset of covariates
         if len(self.regression_covariates) > 0:
             if not set(self.regression_covariates).issubset(set(self.covariates)):
