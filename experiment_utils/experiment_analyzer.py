@@ -170,22 +170,20 @@ class ExperimentAnalyzer:
             data[f"z_{covariate}"] = (data[covariate] - data[covariate].mean()) / data[covariate].std()
         return data
 
-    def __create_formula(self, outcome_variable, type: str = 'regression'):
+    def __create_formula(self, outcome_variable: str, model_type: str = 'regression') -> str:
         """
         Create formula for final regression model
         """
-
         formula_dict = {
             'regression': f"{outcome_variable} ~ 1 + {self.treatment_col}",
             'iv': f"{outcome_variable} ~ 1 + [{self.treatment_col} ~ {self.instrument_col}]"
         }
-        reg_covs = list(set(self.final_covariates) & set(self.regression_covariates))
-
-        if len(reg_covs) > 0:
-            zreg_covs = [f"z_{cov}" for cov in reg_covs]
-            formula = formula_dict[type] + ' + ' + ' + '.join(zreg_covs)
+        relevant_covariates = set(self.final_covariates) & set(self.regression_covariates)
+        standardized_covariates = [f"z_{covariate}" for covariate in relevant_covariates]
+        if standardized_covariates:
+            formula = formula_dict[model_type] + ' + ' + ' + '.join(standardized_covariates)
         else:
-            formula = formula_dict[type]
+            formula = formula_dict[model_type]
 
         return formula
 
@@ -293,7 +291,7 @@ class ExperimentAnalyzer:
         if not self.instrument_col:
             log_and_raise_error(self.logger, "Instrument column must be specified for IV adjustment")
 
-        formula = self.__create_formula(outcome_variable=outcome_variable, type='iv')
+        formula = self.__create_formula(outcome_variable=outcome_variable, model_type='iv')
         model = IV2SLS.from_formula(formula, data)
         results = model.fit(cov_type='robust')
 
@@ -579,9 +577,27 @@ class ExperimentAnalyzer:
                             temp_pd[temp_pd[self.treatment_col] == 0].propensity_score)
                         self.logger.info('::::: Overlap: %.2f', np.round(overlap, 2))
 
+            # create adjustment label
+            relevant_covariates = set(self.final_covariates) & set(self.regression_covariates)
+
+            adjustment_labels = {
+                None: 'No adjustment',
+                'IPW': 'IPW',
+                'IV': 'IV'
+            }
+
+            if adjustment in adjustment_labels and len(relevant_covariates) > 0:
+                adjustment_label = adjustment_labels[adjustment] + ' + Regression'
+            elif adjustment in adjustment_labels:
+                adjustment_label = adjustment_labels[adjustment]
+            elif len(relevant_covariates) > 0:
+                adjustment_label = 'Regression'
+            else:
+                adjustment_label = 'No adjustment'
+
             for outcome in self.outcomes:
                 output = models[adjustment](data=temp_pd, outcome_variable=outcome)
-                output['adjustment'] = 'No adjustment' if adjustment is None else adjustment
+                output['adjustment'] = adjustment_label
                 if adjustment == 'IPW':
                     output['balance'] = np.round(adjusted_balance['balance_flag'].mean(), 2)
                 elif (len(final_covariates) > 0):
