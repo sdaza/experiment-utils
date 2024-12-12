@@ -581,7 +581,7 @@ class ExperimentAnalyzer:
             relevant_covariates = set(self.final_covariates) & set(self.regression_covariates)
 
             adjustment_labels = {
-                None: 'No adjustment',
+                None: '',
                 'IPW': 'IPW',
                 'IV': 'IV'
             }
