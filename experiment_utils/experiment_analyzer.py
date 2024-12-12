@@ -581,13 +581,12 @@ class ExperimentAnalyzer:
             relevant_covariates = set(self.final_covariates) & set(self.regression_covariates)
 
             adjustment_labels = {
-                None: '',
                 'IPW': 'IPW',
                 'IV': 'IV'
             }
 
             if adjustment in adjustment_labels and len(relevant_covariates) > 0:
-                adjustment_label = adjustment_labels[adjustment] + ' + Regression'
+                adjustment_label = adjustment_labels[adjustment] + '+Regression'
             elif adjustment in adjustment_labels:
                 adjustment_label = adjustment_labels[adjustment]
             elif len(relevant_covariates) > 0:
