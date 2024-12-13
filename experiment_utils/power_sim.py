@@ -11,7 +11,7 @@ import seaborn as sns
 from multiprocess.pool import ThreadPool
 from scipy import stats
 import statsmodels.api as sm
-from .utils import log_and_raise_error
+from .utils import log_and_raise_error, get_logger
 
 
 class PowerSim:
@@ -47,8 +47,7 @@ class PowerSim:
             'negcorr' it corresponds to Benjamini/Yekutieli.
         """
 
-        self.logger = logging.getLogger('Power Simulator')
-        self.logger.setLevel(logging.INFO)
+        self.logger = get_logger('Power Simulator')
         self.metric = metric
         self.relative_effect = relative_effect
         self.variants = variants
