@@ -68,7 +68,8 @@ class ExperimentAnalyzer:
 
         self.logger = logging.getLogger('Experiment Analyzer')
         self.logger.setLevel(logging.INFO)
-        self.logger.handlers = []
+        if self.logger.hasHandlers():
+            self.logger.handlers.clear()
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(
             logging.Formatter(
