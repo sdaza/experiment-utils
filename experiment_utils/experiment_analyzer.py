@@ -71,7 +71,7 @@ class ExperimentAnalyzer:
         console_handler = logging.StreamHandler()
         formatter = logging.Formatter(
             fmt='%(asctime)s - %(message)s',
-        datefmt='%d/%m/%Y %I:%M:%S %p'
+            datefmt='%d/%m/%Y %I:%M:%S %p'
         )
         console_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)
