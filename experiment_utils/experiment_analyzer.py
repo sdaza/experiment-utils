@@ -14,7 +14,7 @@ from scipy import stats
 from scipy.stats import gaussian_kde
 from pyspark.sql import functions as F
 from pyspark.sql import DataFrame
-from .utils import turn_off_package_logger, log_and_raise_error
+from .utils import turn_off_package_logger, log_and_raise_error, get_logger
 from .spark_instance import *
 
 
@@ -66,18 +66,7 @@ class ExperimentAnalyzer:
             List of covariates to include in the final linear regression model, by default None
         """
 
-        self.logger = logging.getLogger('Experiment Analyzer')
-        self.logger.setLevel(logging.INFO)
-        if self.logger.hasHandlers():
-            self.logger.handlers.clear()
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(
-            logging.Formatter(
-                fmt='%(asctime)s - %(message)s',
-                datefmt='%d/%m/%Y %I:%M:%S %p'
-            )
-        )
-        self.logger.addHandler(console_handler)
+        self.logger = get_logger('Experiment Analyzer')
         self.data = self.__ensure_spark_df(data)
         self.outcomes = self.__ensure_list(outcomes)
         self.covariates = self.__ensure_list(covariates)

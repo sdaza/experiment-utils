@@ -17,6 +17,26 @@ def turn_off_package_logger(package: str):
     logger.handlers = [logging.NullHandler()]
 
 
+def get_logger(name: str):
+    logger = logging.getLogger(name)
+
+    if not logger.hasHandlers():
+        logger.setLevel(logging.INFO)
+
+        while logger.hasHandlers():
+            logger.removeHandler(logger.handlers[0])
+
+        console_handler = logging.StreamHandler()
+        formatter = logging.Formatter(
+            fmt='%(asctime)s - %(message)s',
+            datefmt='%d/%m/%Y %I:%M:%S %p'
+        )
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+
+    return logger
+
+
 def log_and_raise_error(logger, message, exception_type=ValueError):
     """"
     Logs an error message and raises an exception of the specified type.
