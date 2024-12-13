@@ -68,11 +68,15 @@ class ExperimentAnalyzer:
 
         self.logger = logging.getLogger('Experiment Analyzer')
         self.logger.setLevel(logging.INFO)
+        self.logger.handlers = []
         console_handler = logging.StreamHandler()
-        formatter = logging.Formatter(
-            fmt='%(asctime)s - %(message)s',
-            datefmt='%d/%m/%Y %I:%M:%S %p'
+        console_handler.setFormatter(
+            logging.Formatter(
+                fmt='%(asctime)s - %(message)s',
+                datefmt='%d/%m/%Y %I:%M:%S %p'
+            )
         )
+        self.logger.addHandler(console_handler)
         console_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)
         self.data = self.__ensure_spark_df(data)
