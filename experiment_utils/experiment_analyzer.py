@@ -77,8 +77,6 @@ class ExperimentAnalyzer:
             )
         )
         self.logger.addHandler(console_handler)
-        console_handler.setFormatter(formatter)
-        self.logger.addHandler(console_handler)
         self.data = self.__ensure_spark_df(data)
         self.outcomes = self.__ensure_list(outcomes)
         self.covariates = self.__ensure_list(covariates)
