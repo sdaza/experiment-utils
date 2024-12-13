@@ -19,20 +19,20 @@ def turn_off_package_logger(package: str):
 
 def get_logger(name: str):
     logger = logging.getLogger(name)
-
-    if not logger.hasHandlers():
-        logger.setLevel(logging.INFO)
-
-        while logger.hasHandlers():
-            logger.removeHandler(logger.handlers[0])
-
-        console_handler = logging.StreamHandler()
-        formatter = logging.Formatter(
-            fmt='%(asctime)s - %(message)s',
-            datefmt='%d/%m/%Y %I:%M:%S %p'
-        )
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
+    logger.setLevel(logging.INFO)
+    
+    # Corrected the condition to remove handlers if they exist
+    for handler in logger.handlers[::-1]:
+        logger.removeHandler(handler)
+    
+    console_handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        fmt='%(asctime)s %(message)s',
+        datefmt='%d/%m/%Y %I:%M:%S %p'
+    )
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    logger.propagate = False
 
     return logger
 
