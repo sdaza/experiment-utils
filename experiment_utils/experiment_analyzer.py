@@ -321,7 +321,7 @@ class ExperimentAnalyzer:
             "stat_significance": 1 if pvalue < self.alpha else 0
         }
 
-    def estimate_ipw_logistic(self, data: pd.DataFrame, covariates: List[str], 
+    def estimate_ipw_logistic(self, data: pd.DataFrame, covariates: List[str],
                               outcome_variable: str) -> pd.DataFrame:
         """
         Estimate the IPW using the dowhy library.
@@ -369,8 +369,8 @@ class ExperimentAnalyzer:
         )
         return data
 
-    def estimate_ipw_xgboost(self, data: pd.DataFrame, covariates: List[str], 
-                                  outcome_variable: str) -> pd.DataFrame:
+    def estimate_ipw_xgboost(self, data: pd.DataFrame, covariates: List[str],
+                             outcome_variable: str) -> pd.DataFrame:
         """
         Estimate the IPW using the dowhy library and XGBoost for propensity score estimation.
 
@@ -545,7 +545,6 @@ class ExperimentAnalyzer:
         adjusted_balance: A Pandas DataFrame with adjusted balance metrics.
         imbalance: A Pandas DataFrame with imbalance covariates.
         """
-
 
         models = {
             None: self.linear_regression,
