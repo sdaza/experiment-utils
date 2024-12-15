@@ -410,7 +410,7 @@ class ExperimentAnalyzer:
         y = data[self.treatment_col]
 
         # Initialize and fit the XGBoost classifier
-        xgb_model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
+        xgb_model = XGBClassifier(eval_metric='logloss')
         xgb_model.fit(X, y)
 
         # Predict propensity scores
