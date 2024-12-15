@@ -8,6 +8,10 @@ from functools import reduce
 import pandas as pd
 import numpy as np
 from dowhy import CausalModel
+from xgboost import XGBClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import log_loss
+
 from linearmodels.iv import IV2SLS
 import statsmodels.formula.api as smf
 from scipy import stats
@@ -30,8 +34,9 @@ class ExperimentAnalyzer:
         treatment_col: str,
         experiment_identifier: List = None,
         covariates: List = None,
-        target_ipw_effect: str = "ATT",
         adjustment: str = None,
+        target_ipw_effect: str = "ATT",
+        propensity_score_method: str = 'logistic',
         instrument_col: str = None,
         alpha: float = 0.05,
         regression_covariates: List = None,
@@ -52,12 +57,14 @@ class ExperimentAnalyzer:
             Column name for the treatment variable
         experiment_identifier : List
             List of columns to identify an experiment
-        target_ipw_effect : str, optional
-            Target IPW effect (ATT, ATE, ATC), by default "ATT"
-        assess_overlap : bool, optional
-            Assess overlap between treatment and control groups (slow) when using IPW to adjust covariates, by default False
         adjustment : str, optional
             Adjustment method, by default None
+        target_ipw_effect : str, optional
+            Target IPW effect (ATT, ATE, ATC), by default "ATT"
+        propensity_score_method : str, optional
+            Propensity score method (logistic, xgboost), by default 'logistic'
+        assess_overlap : bool, optional
+            Assess overlap between treatment and control groups (slow) when using IPW to adjust covariates, by default False
         instrument_col : str, optional
             Column name for the instrument variable, by default None
         alpha : float, optional
@@ -72,9 +79,10 @@ class ExperimentAnalyzer:
         self.covariates = self.__ensure_list(covariates)
         self.treatment_col = treatment_col
         self.experiment_identifier = self.__ensure_list(experiment_identifier)
+        self.adjustment = adjustment
+        self.propensity_score_method = propensity_score_method
         self.target_ipw_effect = target_ipw_effect
         self.assess_overlap = assess_overlap
-        self.adjustment = adjustment
         self.instrument_col = instrument_col
         self.regression_covariates = self.__ensure_list(regression_covariates)
         self.__check_input()
@@ -313,7 +321,8 @@ class ExperimentAnalyzer:
             "stat_significance": 1 if pvalue < self.alpha else 0
         }
 
-    def estimate_ipw(self, data: pd.DataFrame, covariates: List[str], outcome_variable: str) -> pd.DataFrame:
+    def estimate_ipw_logistic(self, data: pd.DataFrame, covariates: List[str], 
+                              outcome_variable: str) -> pd.DataFrame:
         """
         Estimate the IPW using the dowhy library.
 
@@ -358,6 +367,69 @@ class ExperimentAnalyzer:
                 },
             },
         )
+        return data
+
+    def estimate_ipw_xgboost(self, data: pd.DataFrame, covariates: List[str], 
+                                  outcome_variable: str) -> pd.DataFrame:
+        """
+        Estimate the IPW using the dowhy library and XGBoost for propensity score estimation.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            Data to estimate the IPW from
+        covariates : List[str]
+            List of covariates to include in the estimation
+        outcome_variable : str
+            Name of the outcome variable
+
+        Returns
+        -------
+        pd.DataFrame
+            Data with the estimated IPW
+        """
+
+        # Turn off package logger
+        turn_off_package_logger('dowhy')
+
+        # Define the causal model
+        causal_model = CausalModel(
+            data=data,
+            treatment=self.treatment_col,
+            outcome=outcome_variable,
+            common_causes=covariates,
+        )
+
+        # Identify the causal effect
+        identified_estimand = causal_model.identify_effect(
+            proceed_when_unidentifiable=True
+        )
+
+        # Split data into features and target
+        X = data[covariates]
+        y = data[self.treatment_col]
+
+        # Initialize and fit the XGBoost classifier
+        xgb_model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
+        xgb_model.fit(X, y)
+
+        # Predict propensity scores
+        propensity_scores = xgb_model.predict_proba(X)[:, 1]
+
+        # Add propensity scores to the data
+        data['propensity_score'] = propensity_scores
+
+        # Estimate the causal effect using the propensity scores
+        causal_model.estimate_effect(
+            identified_estimand,
+            target_units="att",
+            method_name="backdoor.propensity_score_weighting",
+            method_params={
+                "weighting_scheme": "ips_weight",
+                "propensity_score_column": 'propensity_score',
+            },
+        )
+
         return data
 
     def calculate_smd(
@@ -474,10 +546,16 @@ class ExperimentAnalyzer:
         imbalance: A Pandas DataFrame with imbalance covariates.
         """
 
+
         models = {
             None: self.linear_regression,
             "IPW": self.weighted_least_squares,
             "IV": self.iv_regression,
+        }
+
+        propensity_algo = {
+            'logistic': self.estimate_ipw_logistic,
+            'xgboost': self.estimate_ipw_xgboost
         }
 
         key_experiments = self.data.select(*self.experiment_identifier).distinct().collect()
@@ -550,7 +628,7 @@ class ExperimentAnalyzer:
                 self._balance.append(balance)
                 self.logger.info('::::: Balance: %.2f', np.round(balance["balance_flag"].mean(), 2))
                 if adjustment == "IPW":
-                    temp_pd = self.estimate_ipw(
+                    temp_pd = propensity_algo[self.propensity_score_method](
                         data=temp_pd,
                         covariates=[f"z_{cov}" for cov in final_covariates],
                         outcome_variable=self.outcomes[0],
