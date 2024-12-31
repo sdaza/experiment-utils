@@ -2,27 +2,20 @@
 ExperimentAnalyzer class to analyze and design experiments
 """
 
-import logging
 from typing import Dict, List
 from functools import reduce
 import pandas as pd
 import numpy as np
-from dowhy import CausalModel
-from xgboost import XGBClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import log_loss
 
-from linearmodels.iv import IV2SLS
-import statsmodels.formula.api as smf
-from scipy import stats
 from scipy.stats import gaussian_kde
 from pyspark.sql import functions as F
 from pyspark.sql import DataFrame
 from .utils import turn_off_package_logger, log_and_raise_error, get_logger
 from .spark_instance import *
+from estimators import Estimators
 
 
-class ExperimentAnalyzer:
+class ExperimentAnalyzer(Estimators):
     """
     Class ExperimentAnlyzer to analyze and design experiments
     """
@@ -34,13 +27,16 @@ class ExperimentAnalyzer:
         treatment_col: str,
         experiment_identifier: List = None,
         covariates: List = None,
-        adjustment: str = None,
         target_ipw_effect: str = "ATT",
         propensity_score_method: str = 'logistic',
+        min_ps_score=0.05,
+        max_ps_score=0.95,
+        interaction_logistic_ipw=False,
         instrument_col: str = None,
         alpha: float = 0.05,
         regression_covariates: List = None,
-        assess_overlap=False):
+        assess_overlap=False
+    ):
 
         """
         Initialize ExperimentAnalyzer
@@ -73,13 +69,15 @@ class ExperimentAnalyzer:
             List of covariates to include in the final linear regression model, by default None
         """
 
+        super().__init__(treatment_col, instrument_col, target_ipw_effect,
+                         alpha, min_ps_score, max_ps_score, interaction_logistic_ipw)
+
         self.logger = get_logger('Experiment Analyzer')
         self.data = self.__ensure_spark_df(data)
         self.outcomes = self.__ensure_list(outcomes)
         self.covariates = self.__ensure_list(covariates)
         self.treatment_col = treatment_col
         self.experiment_identifier = self.__ensure_list(experiment_identifier)
-        self.adjustment = adjustment
         self.propensity_score_method = propensity_score_method
         self.target_ipw_effect = target_ipw_effect
         self.assess_overlap = assess_overlap
@@ -87,13 +85,14 @@ class ExperimentAnalyzer:
         self.regression_covariates = self.__ensure_list(regression_covariates)
         self.__check_input()
         self.alpha = alpha
+        self.adjustment = None
         self._results = None
         self._balance = []
         self._adjusted_balance = []
         self.final_covariates = []
 
         self.target_weights = {"ATT": "tips_stabilized_weight",
-                               "ATE": "ipw_stabilized_weight",
+                               "ATE": "ips_stabilized_weight",
                                "ATC": "cips_stabilized_weight"}
 
     def __check_input(self):
@@ -177,264 +176,7 @@ class ExperimentAnalyzer:
             data[f"z_{covariate}"] = (data[covariate] - data[covariate].mean()) / data[covariate].std()
         return data
 
-    def __create_formula(self, outcome_variable: str, model_type: str = 'regression') -> str:
-        """
-        Create formula for final regression model
-        """
-        formula_dict = {
-            'regression': f"{outcome_variable} ~ 1 + {self.treatment_col}",
-            'iv': f"{outcome_variable} ~ 1 + [{self.treatment_col} ~ {self.instrument_col}]"
-        }
-        relevant_covariates = set(self.final_covariates) & set(self.regression_covariates)
-        standardized_covariates = [f"z_{covariate}" for covariate in relevant_covariates]
-        if standardized_covariates:
-            formula = formula_dict[model_type] + ' + ' + ' + '.join(standardized_covariates)
-        else:
-            formula = formula_dict[model_type]
-
-        return formula
-
-    def linear_regression(self, data: pd.DataFrame, outcome_variable: str) -> Dict:
-        """
-        Runs a linear regression of the outcome variable on the treatment variable.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            Data to run the regression on
-        outcome_variable : str
-            Name of the outcome variable
-
-        Returns
-        -------
-        Dict
-            Regression results
-        """
-
-        formula = self.__create_formula(outcome_variable=outcome_variable)
-        model = smf.ols(formula, data=data)
-        results = model.fit(cov_type="HC3")
-
-        coefficient = results.params[self.treatment_col]
-        intercept = results.params["Intercept"]
-        relative_effect = coefficient / intercept
-        standard_error = results.bse[self.treatment_col]
-        pvalue = results.pvalues[self.treatment_col]
-
-        return {
-            "outcome": outcome_variable,
-            "treated_units": data[self.treatment_col].sum(),
-            "control_units": data[self.treatment_col].count() - data[self.treatment_col].sum(),
-            "control_value": intercept,
-            "treatment_value": intercept + coefficient,
-            "absolute_effect": coefficient,
-            "relative_effect": relative_effect,
-            "standard_error": standard_error,
-            "pvalue": pvalue,
-            "stat_significance": 1 if pvalue < self.alpha else 0
-        }
-
-    def weighted_least_squares(self, data: pd.DataFrame, outcome_variable: str) -> Dict:
-        """
-        Runs a weighted least squares regression of the outcome variable on the treatment variable.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            Data to run the regression on
-        outcome_variable : str
-            Name of the outcome variable
-
-        Returns
-        -------
-        Dict
-            Regression results
-        """
-
-        formula = self.__create_formula(outcome_variable=outcome_variable)
-        model = smf.wls(
-            formula,
-            data=data,
-            weights=data[self.target_weights[self.target_ipw_effect]],
-        )
-        results = model.fit(cov_type="HC3")
-
-        coefficient = results.params[self.treatment_col]
-        intercept = results.params["Intercept"]
-        relative_effect = coefficient / intercept
-        standard_error = results.bse[self.treatment_col]
-        pvalue = results.pvalues[self.treatment_col]
-
-        return {
-            "outcome": outcome_variable,
-            "treated_units": data[self.treatment_col].sum().astype(int),
-            "control_units": (data[self.treatment_col].count() - data[self.treatment_col].sum()).astype(int),
-            "control_value": intercept,
-            "treatment_value": intercept + coefficient,
-            "absolute_effect": coefficient,
-            "relative_effect": relative_effect,
-            "standard_error": standard_error,
-            "pvalue": pvalue,
-            "stat_significance": 1 if pvalue < self.alpha else 0
-        }
-
-    def iv_regression(self, data: pd.DataFrame, outcome_variable: str) -> Dict:
-        """
-        Perform instrumental variable regression of the outcome variable on the treatment variable.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            Data to run the regression on
-        outcome_variable : str
-            Name of the outcome variable
-
-        Returns
-        -------
-        Dict
-            Regression results including absolute and relative uplift, standard error, and p-value
-        """
-
-        if not self.instrument_col:
-            log_and_raise_error(self.logger, "Instrument column must be specified for IV adjustment")
-
-        formula = self.__create_formula(outcome_variable=outcome_variable, model_type='iv')
-        model = IV2SLS.from_formula(formula, data)
-        results = model.fit(cov_type='robust')
-
-        coefficient = results.params[self.treatment_col]
-        intercept = results.params["Intercept"]
-        relative_effect = coefficient / intercept
-        standard_error = results.std_errors[self.treatment_col]
-        pvalue = results.pvalues[self.treatment_col]
-
-        return {
-            "outcome": outcome_variable,
-            "treated_units": data[self.treatment_col].sum().astype(int),
-            "control_units": (data[self.treatment_col].count() - data[self.treatment_col].sum()).astype(int),
-            "control_value": intercept,
-            "treatment_value": intercept + coefficient,
-            "absolute_effect": coefficient,
-            "relative_effect": relative_effect,
-            "standard_error": standard_error,
-            "pvalue": pvalue,
-            "stat_significance": 1 if pvalue < self.alpha else 0
-        }
-
-    def estimate_ipw_logistic(self, data: pd.DataFrame, covariates: List[str],
-                              outcome_variable: str) -> pd.DataFrame:
-        """
-        Estimate the IPW using the dowhy library.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            Data to estimate the IPW from
-        covariates : List[str]
-            List of covariates to include in the estimation
-        outcome_variable : str
-            Name of the outcome variable
-
-        Returns
-        -------
-        pd.DataFrame
-            Data with the estimated IPW
-        """
-
-        turn_off_package_logger('dowhy')
-
-        causal_model = CausalModel(
-            data=data,
-            treatment=self.treatment_col,
-            outcome=outcome_variable,
-            common_causes=covariates,
-        )
-
-        identified_estimand = causal_model.identify_effect(
-            proceed_when_unidentifiable=True
-        )
-
-        causal_model.estimate_effect(
-            identified_estimand,
-            target_units="att",
-            method_name="backdoor.propensity_score_weighting",
-            method_params={
-                "weighting_scheme": "ips_weight",
-                "propensity_score_model_params": {
-                    "max_iter": 5000,
-                    "penalty": "l2",
-                    "C": 1.0,
-                },
-            },
-        )
-        return data
-
-    def estimate_ipw_xgboost(self, data: pd.DataFrame, covariates: List[str],
-                             outcome_variable: str) -> pd.DataFrame:
-        """
-        Estimate the IPW using the dowhy library and XGBoost for propensity score estimation.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            Data to estimate the IPW from
-        covariates : List[str]
-            List of covariates to include in the estimation
-        outcome_variable : str
-            Name of the outcome variable
-
-        Returns
-        -------
-        pd.DataFrame
-            Data with the estimated IPW
-        """
-
-        # Turn off package logger
-        turn_off_package_logger('dowhy')
-
-        # Define the causal model
-        causal_model = CausalModel(
-            data=data,
-            treatment=self.treatment_col,
-            outcome=outcome_variable,
-            common_causes=covariates,
-        )
-
-        # Identify the causal effect
-        identified_estimand = causal_model.identify_effect(
-            proceed_when_unidentifiable=True
-        )
-
-        # Split data into features and target
-        X = data[covariates]
-        y = data[self.treatment_col]
-
-        # Initialize and fit the XGBoost classifier
-        xgb_model = XGBClassifier(eval_metric='logloss')
-        xgb_model.fit(X, y)
-
-        # Predict propensity scores
-        propensity_scores = xgb_model.predict_proba(X)[:, 1]
-
-        # Add propensity scores to the data
-        data['propensity_score'] = propensity_scores
-
-        # Estimate the causal effect using the propensity scores
-        causal_model.estimate_effect(
-            identified_estimand,
-            target_units="att",
-            method_name="backdoor.propensity_score_weighting",
-            method_params={
-                "weighting_scheme": "ips_weight",
-                "propensity_score_column": 'propensity_score',
-            },
-        )
-
-        return data
-
-    def calculate_smd(
-        self, data=None, covariates=None, weights_col="weights", threshold=0.1
-    ):
+    def calculate_smd(self, data=None, covariates=None, weights_col="weights", threshold=0.1):
         """
         Calculate standardized mean differences (SMDs) between treatment and control groups.
 
@@ -553,8 +295,8 @@ class ExperimentAnalyzer:
         }
 
         propensity_algo = {
-            'logistic': self.estimate_ipw_logistic,
-            'xgboost': self.estimate_ipw_xgboost
+            'logistic': self.ipw_logistic,
+            'xgboost': self.ipw_xgboost
         }
 
         key_experiments = self.data.select(*self.experiment_identifier).distinct().collect()
@@ -629,8 +371,7 @@ class ExperimentAnalyzer:
                 if adjustment == "IPW":
                     temp_pd = propensity_algo[self.propensity_score_method](
                         data=temp_pd,
-                        covariates=[f"z_{cov}" for cov in final_covariates],
-                        outcome_variable=self.outcomes[0],
+                        covariates=[f"z_{cov}" for cov in final_covariates]
                     )
 
                     adjusted_balance = self.calculate_smd(
