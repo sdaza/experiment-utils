@@ -12,7 +12,7 @@ from pyspark.sql import functions as F
 from pyspark.sql import DataFrame
 from .utils import turn_off_package_logger, log_and_raise_error, get_logger
 from .spark_instance import *
-from estimators import Estimators
+from .estimators import *
 
 
 class ExperimentAnalyzer(Estimators):
@@ -27,6 +27,7 @@ class ExperimentAnalyzer(Estimators):
         treatment_col: str,
         experiment_identifier: List = None,
         covariates: List = None,
+        adjustment: str = None,
         target_ipw_effect: str = "ATT",
         propensity_score_method: str = 'logistic',
         min_ps_score=0.05,
@@ -78,6 +79,7 @@ class ExperimentAnalyzer(Estimators):
         self.covariates = self.__ensure_list(covariates)
         self.treatment_col = treatment_col
         self.experiment_identifier = self.__ensure_list(experiment_identifier)
+        self.adjustment = adjustment
         self.propensity_score_method = propensity_score_method
         self.target_ipw_effect = target_ipw_effect
         self.assess_overlap = assess_overlap
@@ -85,7 +87,6 @@ class ExperimentAnalyzer(Estimators):
         self.regression_covariates = self.__ensure_list(regression_covariates)
         self.__check_input()
         self.alpha = alpha
-        self.adjustment = None
         self._results = None
         self._balance = []
         self._adjusted_balance = []
@@ -294,7 +295,7 @@ class ExperimentAnalyzer(Estimators):
             "IV": self.iv_regression,
         }
 
-        propensity_algo = {
+        propensity_model = {
             'logistic': self.ipw_logistic,
             'xgboost': self.ipw_xgboost
         }
@@ -369,7 +370,7 @@ class ExperimentAnalyzer(Estimators):
                 self._balance.append(balance)
                 self.logger.info('::::: Balance: %.2f', np.round(balance["balance_flag"].mean(), 2))
                 if adjustment == "IPW":
-                    temp_pd = propensity_algo[self.propensity_score_method](
+                    temp_pd = propensity_model[self.propensity_score_method](
                         data=temp_pd,
                         covariates=[f"z_{cov}" for cov in final_covariates]
                     )
@@ -412,7 +413,10 @@ class ExperimentAnalyzer(Estimators):
                 adjustment_label = 'No adjustment'
 
             for outcome in self.outcomes:
-                output = models[adjustment](data=temp_pd, outcome_variable=outcome)
+                if adjustment == 'IPW':
+                    output = models[adjustment](data=temp_pd, outcome_variable=outcome, weight_column='weights')
+                else:
+                    output = models[adjustment](data=temp_pd, outcome_variable=outcome)
                 output['adjustment'] = adjustment_label
                 if adjustment == 'IPW':
                     output['balance'] = np.round(adjusted_balance['balance_flag'].mean(), 2)
@@ -668,3 +672,10 @@ class ExperimentAnalyzer(Estimators):
             spark_df = spark.createDataFrame(dataframe)
             return spark_df
         return dataframe
+
+    def __call_model(self, models, func_key, *args, **kwargs):
+        if func_key in models:
+            func = models[func_key]
+            func(*args, **kwargs)
+        else:
+            print("Function not found.")

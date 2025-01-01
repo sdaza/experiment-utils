@@ -36,15 +36,35 @@ class Estimators:
             'regression': f"{outcome_variable} ~ 1 + {self.treatment_col}",
             'iv': f"{outcome_variable} ~ 1 + [{self.treatment_col} ~ {self.instrument_col}]"
         }
-
-        standardized_covariates = [f"z_{covariate}" for covariate in covariates]
-        if standardized_covariates:
+        if covariates:
+            standardized_covariates = [f"z_{covariate}" for covariate in covariates]
             formula = formula_dict[model_type] + ' + ' + ' + '.join(standardized_covariates)
         else:
             formula = formula_dict[model_type]
         return formula
 
     def linear_regression(self, data: pd.DataFrame, outcome_variable: str, covariates: List[str] = None) -> Dict:
+        """
+        Perform linear regression on the given data.
+
+        Parameters:
+        data (pd.DataFrame): The input data containing the variables for the regression.
+        outcome_variable (str): The name of the outcome variable to be predicted.
+        covariates (List[str]): The list of covariates to include in the regression model.
+
+        Returns:
+        Dict: A dictionary containing the results of the regression, including:
+            - "outcome" (str): The name of the outcome variable.
+            - "treated_units" (int): The number of treated units in the data.
+            - "control_units" (int): The number of control units in the data.
+            - "control_value" (float): The intercept of the regression model.
+            - "treatment_value" (float): The predicted value for the treatment group.
+            - "absolute_effect" (float): The coefficient of the treatment variable.
+            - "relative_effect" (float): The relative effect of the treatment.
+            - "standard_error" (float): The standard error of the treatment coefficient.
+            - "pvalue" (float): The p-value of the treatment coefficient.
+            - "stat_significance" (int): Indicator of statistical significance (1 if p-value < alpha, else 0).
+        """
 
         formula = self.__create_formula(outcome_variable=outcome_variable, covariates=covariates)
         model = smf.ols(formula, data=data)
@@ -69,13 +89,16 @@ class Estimators:
             "stat_significance": 1 if pvalue < self.alpha else 0
         }
 
-    def weighted_least_squares(self, data: pd.DataFrame, outcome_variable: str, weight_column: str, covariates: List[str] = None) -> Dict:
+    def weighted_least_squares(self, data: pd.DataFrame, outcome_variable: str,
+                               weight_column: str, covariates: List[str] = None) -> Dict:
         """
         Perform weighted least squares regression on the given data.
 
         Parameters:
         data (pd.DataFrame): The input data containing the variables for the regression.
         outcome_variable (str): The name of the outcome variable to be predicted.
+        weight_column (str): The name of the column containing the weights for the regression.
+        covariates (List[str]): The list of covariates to include in the regression model.
 
         Returns:
         Dict: A dictionary containing the results of the regression, including:
