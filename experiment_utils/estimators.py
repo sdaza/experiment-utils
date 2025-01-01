@@ -294,7 +294,7 @@ class Estimators:
         ) * (
             1 - p_treatment
         )
-        
+
         data["tips_stabilized_weight"] = data[self.treatment_col] * p_treatment + (
             1 - data[self.treatment_col]
         ) * data["propensity_score"] / (1 - data["propensity_score"]) * (1 - p_treatment)

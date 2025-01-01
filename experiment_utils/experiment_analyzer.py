@@ -96,7 +96,6 @@ class ExperimentAnalyzer(Estimators):
                                "ATE": "ips_stabilized_weight",
                                "ATC": "cips_stabilized_weight"}
 
-
     def __check_input(self) -> None:
 
         # dataframe is empty
@@ -416,7 +415,7 @@ class ExperimentAnalyzer(Estimators):
             for outcome in self.outcomes:
                 if adjustment == 'IPW':
                     output = models[adjustment](data=temp_pd, outcome_variable=outcome, covariates=relevant_covariates,
-                        weight_column=self.target_weights[self.target_ipw_effect])
+                                                weight_column=self.target_weights[self.target_ipw_effect])
                 else:
                     output = models[adjustment](data=temp_pd, outcome_variable=outcome, covariates=relevant_covariates)
                 output['adjustment'] = adjustment_label
