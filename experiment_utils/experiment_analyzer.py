@@ -96,6 +96,7 @@ class ExperimentAnalyzer(Estimators):
                                "ATE": "ips_stabilized_weight",
                                "ATC": "cips_stabilized_weight"}
 
+
     def __check_input(self) -> None:
 
         # dataframe is empty
@@ -397,7 +398,6 @@ class ExperimentAnalyzer(Estimators):
 
             # create adjustment label
             relevant_covariates = set(self.final_covariates) & set(self.regression_covariates)
-            standardized_covariates = [f"z_{cov}" for cov in relevant_covariates]
 
             adjustment_labels = {
                 'IPW': 'IPW',
@@ -415,10 +415,10 @@ class ExperimentAnalyzer(Estimators):
 
             for outcome in self.outcomes:
                 if adjustment == 'IPW':
-                    output = models[adjustment](data=temp_pd, outcome_variable=outcome, covariates=standardized_covariates,
-                        weight_column='weights')
+                    output = models[adjustment](data=temp_pd, outcome_variable=outcome, covariates=relevant_covariates,
+                        weight_column=self.target_weights[self.target_ipw_effect])
                 else:
-                    output = models[adjustment](data=temp_pd, outcome_variable=outcome, covariates=standardized_covariates)
+                    output = models[adjustment](data=temp_pd, outcome_variable=outcome, covariates=relevant_covariates)
                 output['adjustment'] = adjustment_label
                 if adjustment == 'IPW':
                     output['balance'] = np.round(adjusted_balance['balance_flag'].mean(), 2)

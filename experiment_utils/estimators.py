@@ -267,6 +267,7 @@ class Estimators:
         data['propensity_score'] = np.minimum(self.max_ps_score, data['propensity_score'])
         data['propensity_score'] = np.maximum(self.min_ps_score, data['propensity_score'])
         data = self.__calculate_stabilized_weights(data)
+
         return data
 
     def __calculate_stabilized_weights(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -293,6 +294,7 @@ class Estimators:
         ) * (
             1 - p_treatment
         )
+        
         data["tips_stabilized_weight"] = data[self.treatment_col] * p_treatment + (
             1 - data[self.treatment_col]
         ) * data["propensity_score"] / (1 - data["propensity_score"]) * (1 - p_treatment)
