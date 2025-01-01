@@ -19,6 +19,13 @@ def turn_off_package_logger(package: str) -> None:
 
 
 def get_logger(name: str) -> logging.Logger:
+    """"
+    Get a logger with the specified name.
+
+    :param name: The name of the logger.
+    :return: The logger.
+    """
+
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
 
