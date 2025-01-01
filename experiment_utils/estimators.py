@@ -266,7 +266,7 @@ class Estimators:
         data['propensity_score'] = xgb_model.predict_proba(X)[:, 1]
         data['propensity_score'] = np.minimum(self.max_ps_score, data['propensity_score'])
         data['propensity_score'] = np.maximum(self.min_ps_score, data['propensity_score'])
-        data = self.___calculate_stabilized_weights(data)
+        data = self.__calculate_stabilized_weights(data)
         return data
 
     def __calculate_stabilized_weights(self, data: pd.DataFrame) -> pd.DataFrame:
