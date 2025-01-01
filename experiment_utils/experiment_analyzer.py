@@ -397,6 +397,7 @@ class ExperimentAnalyzer(Estimators):
 
             # create adjustment label
             relevant_covariates = set(self.final_covariates) & set(self.regression_covariates)
+            standardized_covariates = [f"z_{cov}" for cov in relevant_covariates]
 
             adjustment_labels = {
                 'IPW': 'IPW',
@@ -414,9 +415,10 @@ class ExperimentAnalyzer(Estimators):
 
             for outcome in self.outcomes:
                 if adjustment == 'IPW':
-                    output = models[adjustment](data=temp_pd, outcome_variable=outcome, weight_column='weights')
+                    output = models[adjustment](data=temp_pd, outcome_variable=outcome, covariates=standardized_covariates,
+                        weight_column='weights')
                 else:
-                    output = models[adjustment](data=temp_pd, outcome_variable=outcome)
+                    output = models[adjustment](data=temp_pd, outcome_variable=outcome, covariates=standardized_covariates)
                 output['adjustment'] = adjustment_label
                 if adjustment == 'IPW':
                     output['balance'] = np.round(adjusted_balance['balance_flag'].mean(), 2)
