@@ -32,7 +32,7 @@ class ExperimentAnalyzer(Estimators):
         propensity_score_method: str = 'logistic',
         min_ps_score: float = 0.05,
         max_ps_score: float = 0.95,
-        interaction_logistic_ipw: bool = False,
+        interaction_logistic_ipw: bool = True,
         instrument_col: Optional[str] = None,
         alpha: float = 0.05,
         regression_covariates: Optional[List[str]] = None,
@@ -394,6 +394,14 @@ class ExperimentAnalyzer(Estimators):
                             temp_pd[temp_pd[self.treatment_col] == 1].propensity_score,
                             temp_pd[temp_pd[self.treatment_col] == 0].propensity_score)
                         self.logger.info('::::: Overlap: %.2f', np.round(overlap, 2))
+
+                if adjustment == "IV":
+                    if self.instrument_col is None:
+                        log_and_raise_error(self.logger, "Instrument column is required for IV estimation!")
+                    iv_balance = self.calculate_smd(
+                        data=temp_pd, covariates=final_covariates
+                    )
+                    self.logger.info('::::: IV Balance: %.2f', np.round(iv_balance["balance_flag"].mean(), 2))
 
             # create adjustment label
             relevant_covariates = set(self.final_covariates) & set(self.regression_covariates)
