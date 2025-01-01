@@ -4,9 +4,10 @@ assumptions about the format of input data.
 """
 
 import logging
+from typing import Type, Union
 
 
-def turn_off_package_logger(package: str):
+def turn_off_package_logger(package: str) -> None:
     """"
     Turn off logging for a specific package.
 
@@ -17,7 +18,7 @@ def turn_off_package_logger(package: str):
     logger.handlers = [logging.NullHandler()]
 
 
-def get_logger(name: str):
+def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
 
@@ -36,7 +37,7 @@ def get_logger(name: str):
     return logger
 
 
-def log_and_raise_error(logger, message, exception_type=ValueError):
+def log_and_raise_error(logger: logging.Logger, message: str, exception_type: Type[Exception] = ValueError) -> None:
     """"
     Logs an error message and raises an exception of the specified type.
 
