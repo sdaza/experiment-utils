@@ -10,7 +10,7 @@ import numpy as np
 from scipy.stats import gaussian_kde
 from pyspark.sql import functions as F
 from pyspark.sql import DataFrame
-from .utils import turn_off_package_logger, log_and_raise_error, get_logger
+from .utils import log_and_raise_error, get_logger
 from .spark_instance import *
 from .estimators import *
 
@@ -270,7 +270,7 @@ class ExperimentAnalyzer(Estimators):
 
         return overlap_coefficient
 
-    def get_effects(self, min_binary_count: int = 100, adjustment: Optional[str] = None) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    def get_effects(self, min_binary_count: int = 100, adjustment: Optional[str] = None) -> pd.DataFrame:
         """
         Calculate effects (uplifts), given the data and experimental units.
 
@@ -672,10 +672,3 @@ class ExperimentAnalyzer(Estimators):
             spark_df = spark.createDataFrame(dataframe)
             return spark_df
         return dataframe
-
-    def __call_model(self, models: Dict[str, callable], func_key: str, *args, **kwargs) -> None:
-        if func_key in models:
-            func = models[func_key]
-            func(*args, **kwargs)
-        else:
-            print("Function not found.")

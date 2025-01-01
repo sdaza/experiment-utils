@@ -31,6 +31,17 @@ class Estimators:
         self.interaction_logistic_ipw = interaction_logistic_ipw
 
     def __create_formula(self, outcome_variable: str, covariates: Optional[List[str]], model_type: str = 'regression') -> str:
+        """
+        Create the formula for the regression model.
+
+        Parameters:
+        outcome_variable (str): The name of the outcome variable to be predicted.
+        covariates (List[str]): The list of covariates to include in the regression model.
+        model_type (str): The type of regression model to perform.
+
+        Returns:
+        str: The formula for the regression model.
+        """
 
         formula_dict = {
             'regression': f"{outcome_variable} ~ 1 + {self.treatment_col}",
@@ -141,7 +152,27 @@ class Estimators:
         }
 
     def iv_regression(self, data: pd.DataFrame, outcome_variable: str, covariates: Optional[List[str]] = None) -> Dict[str, Union[str, int, float]]:
+        """"
+        Perform instrumental variable regression on the given data.
 
+        Parameters:
+        data (pd.DataFrame): The input data containing the variables for the regression.
+        outcome_variable (str): The name of the outcome variable to be predicted.
+        covariates (List[str]): The list of covariates to include in the regression model.
+
+        Returns:
+        Dict: A dictionary containing the results of the regression, including:
+            - "outcome" (str): The name of the outcome variable.
+            - "treated_units" (int): The number of treated units in the data.
+            - "control_units" (int): The number of control units in the data.
+            - "control_value" (float): The intercept of the regression model.
+            - "treatment_value" (float): The predicted value for the treatment group.
+            - "absolute_effect" (float): The coefficient of the treatment variable.
+            - "relative_effect" (float): The relative effect of the treatment.
+            - "standard_error" (float): The standard error of the treatment coefficient.
+            - "pvalue" (float): The p-value of the treatment coefficient.
+            - "stat_significance" (int): Indicator of statistical significance (1 if p-value < alpha, else 0).
+        """
         if not self.instrument_col:
             log_and_raise_error(self.logger, "Instrument column must be specified for IV adjustment")
 
@@ -215,6 +246,16 @@ class Estimators:
         return data
 
     def ipw_xgboost(self, data: pd.DataFrame, covariates: List[str]) -> pd.DataFrame:
+        """
+        Estimate the Inverse Probability Weights (IPW) using XGBoost.
+
+        Parameters:
+        data (pd.DataFrame): Data to estimate the IPW from.
+        covariates (List[str]): List of covariates to include in the estimation.
+
+        Returns:
+        pd.DataFrame: Data with the estimated IPW.
+        """
 
         X = data[covariates]
         y = data[self.treatment_col]
