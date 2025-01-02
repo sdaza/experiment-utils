@@ -12,6 +12,7 @@ license = "MIT"
 
 keywords = [
     "causality",
+    "pyspark",
     "causal-inference",
     "statistics",
     "experimentation",
