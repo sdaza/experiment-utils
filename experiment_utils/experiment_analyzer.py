@@ -1,5 +1,32 @@
 """
 ExperimentAnalyzer class to analyze and design experiments
+
+Parameters
+----------
+data : DataFrame
+    PySpark Dataframe
+outcomes : List
+    List of outcome variables
+covariates : List
+    List of covariates
+treatment_col : str
+    Column name for the treatment variable
+experiment_identifier : List
+    List of columns to identify an experiment
+adjustment : str, optional
+    Covariate adjustment method (e.g., IPW, IV), by default None
+target_ipw_effect : str, optional
+    Target IPW effect (ATT, ATE, ATC), by default "ATT"
+propensity_score_method : str, optional
+    Propensity score method (logistic, xgboost), by default 'logistic'
+assess_overlap : bool, optional
+    Assess overlap between treatment and control groups (slow) when using IPW to adjust covariates, by default False
+instrument_col : str, optional
+    Column name for the instrument variable, by default None
+alpha : float, optional
+    Significance level, by default 0.05
+regression_covariates : List, optional
+    List of covariates to include in the final linear regression model, by default None
 """
 
 from typing import Dict, List, Optional, Tuple, Union
@@ -39,37 +66,6 @@ class ExperimentAnalyzer:
         regression_covariates: Optional[List[str]] = None,
         assess_overlap: bool = False
     ) -> None:
-
-        """
-        Initialize ExperimentAnalyzer
-
-        Parameters
-        ----------
-        data : DataFrame
-            PySpark Dataframe
-        outcomes : List
-            List of outcome variables
-        covariates : List
-            List of covariates
-        treatment_col : str
-            Column name for the treatment variable
-        experiment_identifier : List
-            List of columns to identify an experiment
-        adjustment : str, optional
-            Adjustment method, by default None
-        target_ipw_effect : str, optional
-            Target IPW effect (ATT, ATE, ATC), by default "ATT"
-        propensity_score_method : str, optional
-            Propensity score method (logistic, xgboost), by default 'logistic'
-        assess_overlap : bool, optional
-            Assess overlap between treatment and control groups (slow) when using IPW to adjust covariates, by default False
-        instrument_col : str, optional
-            Column name for the instrument variable, by default None
-        alpha : float, optional
-            Significance level, by default 0.05
-        regression_covariates : List, optional
-            List of covariates to include in the final linear regression model, by default None
-        """
 
         self._logger = get_logger('Experiment Analyzer')
         self._data = self.__ensure_spark_df(data)
