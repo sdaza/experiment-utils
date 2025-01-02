@@ -32,7 +32,7 @@ class ExperimentAnalyzer(Estimators):
         propensity_score_method: str = 'logistic',
         min_ps_score: float = 0.05,
         max_ps_score: float = 0.95,
-        interaction_logistic_ipw: bool = True,
+        polynomial_ipw: bool = True,
         instrument_col: Optional[str] = None,
         alpha: float = 0.05,
         regression_covariates: Optional[List[str]] = None,
@@ -71,7 +71,7 @@ class ExperimentAnalyzer(Estimators):
         """
 
         super().__init__(treatment_col, instrument_col, target_ipw_effect,
-                         alpha, min_ps_score, max_ps_score, interaction_logistic_ipw)
+                         alpha, min_ps_score, max_ps_score, polynomial_ipw)
 
         self.logger = get_logger('Experiment Analyzer')
         self.data = self.__ensure_spark_df(data)

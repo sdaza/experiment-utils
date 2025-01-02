@@ -19,7 +19,7 @@ class Estimators:
     def __init__(self, treatment_col: str, instrument_col: Optional[str] = None,
                  target_ipw_effect: str = 'ATT', alpha: float = 0.05,
                  min_ps_score: float = 0.05, max_ps_score: float = 0.95,
-                 interaction_logistic_ipw: bool = False) -> None:
+                 polynomial_ipw: bool = False) -> None:
 
         self.logger = get_logger('Estimators')
         self.treatment_col = treatment_col
@@ -28,7 +28,7 @@ class Estimators:
         self.alpha = alpha
         self.max_ps_score = max_ps_score
         self.min_ps_score = min_ps_score
-        self.interaction_logistic_ipw = interaction_logistic_ipw
+        self.polynomial_ipw = polynomial_ipw
 
     def __create_formula(self, outcome_variable: str, covariates: Optional[List[str]], model_type: str = 'regression') -> str:
         """
@@ -224,8 +224,8 @@ class Estimators:
 
         logistic_model = LogisticRegression(penalty=penalty, C=C, max_iter=max_iter)
 
-        if self.interaction_logistic_ipw:
-            poly = PolynomialFeatures(interaction_only=True, include_bias=False)
+        if self.polynomial_ipw:
+            poly = PolynomialFeatures()
             X = poly.fit_transform(data[covariates])
             feature_names = poly.get_feature_names_out(covariates)
             X = pd.DataFrame(X, columns=feature_names)
