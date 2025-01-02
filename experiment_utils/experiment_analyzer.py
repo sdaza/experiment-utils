@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 
 from scipy.stats import gaussian_kde
+from scipy import stats
 from pyspark.sql import functions as F
 from pyspark.sql import DataFrame
 from .utils import log_and_raise_error, get_logger
