@@ -38,6 +38,12 @@ class ExperimentAnalyzer:
         Target IPW effect (ATT, ATE, ATC), by default "ATT"
     propensity_score_method : str, optional
         Propensity score method (logistic, xgboost), by default 'logistic'
+    min_ps_score : float, optional
+        Minimum propensity score, by default 0.05
+    max_ps_score : float, optional
+        Maximum propensity score, by default 0.95
+    polynomial_ipw : bool, optional
+        Use polynomial and interaction features for IPW, by default True
     assess_overlap : bool, optional
         Assess overlap between treatment and control groups (slow) when using IPW to adjust covariates, by default False
     instrument_col : str, optional
