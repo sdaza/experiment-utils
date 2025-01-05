@@ -176,7 +176,7 @@ class ExperimentAnalyzer:
             data[f"z_{covariate}"] = (data[covariate] - data[covariate].mean()) / data[covariate].std()
         return data
 
-    def calculate_smd(self, data: pd.DataFrame, covariates: Optional[List[str]] = None, weights_col: str = "weights", threshold: float = 0.1) -> pd.DataFrame:
+    def calculate_smd(self, data: pd.DataFrame, treatment_col: str = None, covariates: Optional[List[str]] = None, weights_col: str = "weights", threshold: float = 0.1) -> pd.DataFrame:
         """
         Calculate standardized mean differences (SMDs) between treatment and control groups.
 
@@ -184,6 +184,8 @@ class ExperimentAnalyzer:
         ----------
         data : DataFrame, optional
             DataFrame containing the data to calculate SMDs on. If None, uses the data from the class.
+        treatment_col : str, optional
+            Name of the column containing the treatment assignment.
         covariates : list, optional
             List of column names to calculate SMDs for. If None, uses all numeric and binary covariates.
         weights_col : str, optional
@@ -197,8 +199,11 @@ class ExperimentAnalyzer:
             DataFrame containing the SMDs and balance flags for each covariate.
         """
 
-        treated = data[data[self._treatment_col] == 1]
-        control = data[data[self._treatment_col] == 0]
+        if treatment_col is None: 
+            treatment_col = self._treatment_col
+        
+        treated = data[data[treatment_col] == 1]
+        control = data[data[treatment_col] == 0]
 
         if covariates is None:
             covariates = self._final_covariates
@@ -398,7 +403,7 @@ class ExperimentAnalyzer:
                     if self._instrument_col is None:
                         log_and_raise_error(self._logger, "Instrument column is required for IV estimation!")
                     iv_balance = self.calculate_smd(
-                        data=temp_pd, covariates=final_covariates
+                        data=temp_pd, treatment_col=self._instrument_col, covariates=final_covariates
                     )
                     self._logger.info('::::: IV Balance: %.2f', np.round(iv_balance["balance_flag"].mean(), 2))
 
