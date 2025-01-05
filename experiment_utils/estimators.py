@@ -21,14 +21,14 @@ class Estimators:
                  min_ps_score: float = 0.05, max_ps_score: float = 0.95,
                  polynomial_ipw: bool = False) -> None:
 
-        self.logger = get_logger('Estimators')
-        self.treatment_col = treatment_col
-        self.instrument_col = instrument_col
-        self.target_ipw_effect = target_ipw_effect
-        self.alpha = alpha
-        self.max_ps_score = max_ps_score
-        self.min_ps_score = min_ps_score
-        self.polynomial_ipw = polynomial_ipw
+        self._logger = get_logger('Estimators')
+        self._treatment_col = treatment_col
+        self._instrument_col = instrument_col
+        self._target_ipw_effect = target_ipw_effect
+        self._alpha = alpha
+        self._max_ps_score = max_ps_score
+        self._min_ps_score = min_ps_score
+        self._polynomial_ipw = polynomial_ipw
 
     def __create_formula(self, outcome_variable: str, covariates: Optional[List[str]], model_type: str = 'regression') -> str:
         """
@@ -44,8 +44,8 @@ class Estimators:
         """
 
         formula_dict = {
-            'regression': f"{outcome_variable} ~ 1 + {self.treatment_col}",
-            'iv': f"{outcome_variable} ~ 1 + [{self.treatment_col} ~ {self.instrument_col}]"
+            'regression': f"{outcome_variable} ~ 1 + {self._treatment_col}",
+            'iv': f"{outcome_variable} ~ 1 + [{self._treatment_col} ~ {self._instrument_col}]"
         }
         if covariates:
             standardized_covariates = [f"z_{covariate}" for covariate in covariates]
@@ -81,23 +81,23 @@ class Estimators:
         model = smf.ols(formula, data=data)
         results = model.fit(cov_type="HC3")
 
-        coefficient = results.params[self.treatment_col]
+        coefficient = results.params[self._treatment_col]
         intercept = results.params["Intercept"]
         relative_effect = coefficient / intercept
-        standard_error = results.bse[self.treatment_col]
-        pvalue = results.pvalues[self.treatment_col]
+        standard_error = results.bse[self._treatment_col]
+        pvalue = results.pvalues[self._treatment_col]
 
         return {
             "outcome": outcome_variable,
-            "treated_units": data[self.treatment_col].sum(),
-            "control_units": data[self.treatment_col].count() - data[self.treatment_col].sum(),
+            "treated_units": data[self._treatment_col].sum(),
+            "control_units": data[self._treatment_col].count() - data[self._treatment_col].sum(),
             "control_value": intercept,
             "treatment_value": intercept + coefficient,
             "absolute_effect": coefficient,
             "relative_effect": relative_effect,
             "standard_error": standard_error,
             "pvalue": pvalue,
-            "stat_significance": 1 if pvalue < self.alpha else 0
+            "stat_significance": 1 if pvalue < self._alpha else 0
         }
 
     def weighted_least_squares(self, data: pd.DataFrame, outcome_variable: str,
@@ -132,23 +132,23 @@ class Estimators:
         )
         results = model.fit(cov_type="HC3")
 
-        coefficient = results.params[self.treatment_col]
+        coefficient = results.params[self._treatment_col]
         intercept = results.params["Intercept"]
         relative_effect = coefficient / intercept
-        standard_error = results.bse[self.treatment_col]
-        pvalue = results.pvalues[self.treatment_col]
+        standard_error = results.bse[self._treatment_col]
+        pvalue = results.pvalues[self._treatment_col]
 
         return {
             "outcome": outcome_variable,
-            "treated_units": data[self.treatment_col].sum().astype(int),
-            "control_units": (data[self.treatment_col].count() - data[self.treatment_col].sum()).astype(int),
+            "treated_units": data[self._treatment_col].sum().astype(int),
+            "control_units": (data[self._treatment_col].count() - data[self._treatment_col].sum()).astype(int),
             "control_value": intercept,
             "treatment_value": intercept + coefficient,
             "absolute_effect": coefficient,
             "relative_effect": relative_effect,
             "standard_error": standard_error,
             "pvalue": pvalue,
-            "stat_significance": 1 if pvalue < self.alpha else 0
+            "stat_significance": 1 if pvalue < self._alpha else 0
         }
 
     def iv_regression(self, data: pd.DataFrame, outcome_variable: str, covariates: Optional[List[str]] = None) -> Dict[str, Union[str, int, float]]:
@@ -173,30 +173,30 @@ class Estimators:
             - "pvalue" (float): The p-value of the treatment coefficient.
             - "stat_significance" (int): Indicator of statistical significance (1 if p-value < alpha, else 0).
         """
-        if not self.instrument_col:
-            log_and_raise_error(self.logger, "Instrument column must be specified for IV adjustment")
+        if not self._instrument_col:
+            log_and_raise_error(self._logger, "Instrument column must be specified for IV adjustment")
 
         formula = self.__create_formula(outcome_variable=outcome_variable, model_type='iv', covariates=covariates)
         model = IV2SLS.from_formula(formula, data)
         results = model.fit(cov_type='robust')
 
-        coefficient = results.params[self.treatment_col]
+        coefficient = results.params[self._treatment_col]
         intercept = results.params["Intercept"]
         relative_effect = coefficient / intercept
-        standard_error = results.std_errors[self.treatment_col]
-        pvalue = results.pvalues[self.treatment_col]
+        standard_error = results.std_errors[self._treatment_col]
+        pvalue = results.pvalues[self._treatment_col]
 
         return {
             "outcome": outcome_variable,
-            "treated_units": data[self.treatment_col].sum().astype(int),
-            "control_units": (data[self.treatment_col].count() - data[self.treatment_col].sum()).astype(int),
+            "treated_units": data[self._treatment_col].sum().astype(int),
+            "control_units": (data[self._treatment_col].count() - data[self._treatment_col].sum()).astype(int),
             "control_value": intercept,
             "treatment_value": intercept + coefficient,
             "absolute_effect": coefficient,
             "relative_effect": relative_effect,
             "standard_error": standard_error,
             "pvalue": pvalue,
-            "stat_significance": 1 if pvalue < self.alpha else 0
+            "stat_significance": 1 if pvalue < self._alpha else 0
         }
 
     def ipw_logistic(self, data: pd.DataFrame, covariates: List[str], penalty: str = 'l2', C: float = 1.0, max_iter: int = 5000) -> pd.DataFrame:
@@ -224,7 +224,7 @@ class Estimators:
 
         logistic_model = LogisticRegression(penalty=penalty, C=C, max_iter=max_iter)
 
-        if self.polynomial_ipw:
+        if self._polynomial_ipw:
             poly = PolynomialFeatures()
             X = poly.fit_transform(data[covariates])
             feature_names = poly.get_feature_names_out(covariates)
@@ -232,15 +232,15 @@ class Estimators:
         else:
             X = data[covariates]
 
-        y = data[self.treatment_col]
+        y = data[self._treatment_col]
         logistic_model.fit(X, y)
 
         if not logistic_model.n_iter_[0] < logistic_model.max_iter:
-            self.logger.warning("Logistic regression model did not converge. Consider increasing the number of iterations or adjusting other parameters.")
+            self._logger.warning("Logistic regression model did not converge. Consider increasing the number of iterations or adjusting other parameters.")
 
         data['propensity_score'] = logistic_model.predict_proba(X)[:, 1]
-        data['propensity_score'] = np.minimum(self.max_ps_score, data['propensity_score'])
-        data['propensity_score'] = np.maximum(self.min_ps_score, data['propensity_score'])
+        data['propensity_score'] = np.minimum(self._max_ps_score, data['propensity_score'])
+        data['propensity_score'] = np.maximum(self._min_ps_score, data['propensity_score'])
 
         data = self.__calculate_stabilized_weights(data)
         return data
@@ -258,14 +258,14 @@ class Estimators:
         """
 
         X = data[covariates]
-        y = data[self.treatment_col]
+        y = data[self._treatment_col]
 
         xgb_model = XGBClassifier(eval_metric='logloss')
         xgb_model.fit(X, y)
 
         data['propensity_score'] = xgb_model.predict_proba(X)[:, 1]
-        data['propensity_score'] = np.minimum(self.max_ps_score, data['propensity_score'])
-        data['propensity_score'] = np.maximum(self.min_ps_score, data['propensity_score'])
+        data['propensity_score'] = np.minimum(self._max_ps_score, data['propensity_score'])
+        data['propensity_score'] = np.maximum(self._min_ps_score, data['propensity_score'])
         data = self.__calculate_stabilized_weights(data)
 
         return data
@@ -285,24 +285,24 @@ class Estimators:
             Data with the calculated stabilized weights
         """
         num_units = data.shape[0]
-        p_treatment = sum(data[self.treatment_col]) / num_units
+        p_treatment = sum(data[self._treatment_col]) / num_units
 
-        data["ips_stabilized_weight"] = data[self.treatment_col] / data[
+        data["ips_stabilized_weight"] = data[self._treatment_col] / data[
             "propensity_score"
-        ] * p_treatment + (1 - data[self.treatment_col]) / (
+        ] * p_treatment + (1 - data[self._treatment_col]) / (
             1 - data["propensity_score"]
         ) * (
             1 - p_treatment
         )
 
-        data["tips_stabilized_weight"] = data[self.treatment_col] * p_treatment + (
-            1 - data[self.treatment_col]
+        data["tips_stabilized_weight"] = data[self._treatment_col] * p_treatment + (
+            1 - data[self._treatment_col]
         ) * data["propensity_score"] / (1 - data["propensity_score"]) * (1 - p_treatment)
 
-        data["cips_stabilized_weight"] = data[self.treatment_col] * (
+        data["cips_stabilized_weight"] = data[self._treatment_col] * (
             1 - data["propensity_score"]
         ) / data["propensity_score"] * p_treatment + (
-            1 - data[self.treatment_col]
+            1 - data[self._treatment_col]
         ) * (
             1 - p_treatment
         )
