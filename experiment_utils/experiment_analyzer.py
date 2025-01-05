@@ -199,9 +199,9 @@ class ExperimentAnalyzer:
             DataFrame containing the SMDs and balance flags for each covariate.
         """
 
-        if treatment_col is None: 
+        if treatment_col is None:
             treatment_col = self._treatment_col
-        
+
         treated = data[data[treatment_col] == 1]
         control = data[data[treatment_col] == 0]
 
