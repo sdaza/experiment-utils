@@ -12,6 +12,7 @@ license = "MIT"
 
 keywords = [
     "causality",
+    "pyspark",
     "causal-inference",
     "statistics",
     "experimentation",
@@ -33,8 +34,8 @@ multiprocess = ">=0.70.14"
 threadpoolctl = ">=3.5.0"
 statsmodels = ">=0.13.2"
 scipy = ">=1.9.1"
-dowhy = ">=0.11.1"
 linearmodels = ">=6.1"
+scikit-learn = ">=1.6.0"
 pytest = ">=8.3.4"
 pyspark = ">=3.5.3"
 xgboost = ">=2.1.3"

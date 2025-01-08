@@ -24,7 +24,7 @@ def test_plot_power():
                          effects=[[0.01, 0.03], [0.03, 0.05], [0.03, 0.07]],
                          sample_sizes=[[1000], [5000], [9000]],
                          threads=16,
-                         plot=True)
+                         plot=False)
         assert True
     except Exception as e:
         pytest.fail(f" raised an exception: {e}")

@@ -12,15 +12,16 @@ from multiprocess.pool import ThreadPool
 from scipy import stats
 import statsmodels.api as sm
 from .utils import log_and_raise_error, get_logger
+from typing import List, Tuple, Dict, Union
 
 
 class PowerSim:
     """"
     PowerSim class for simulation of power analysis.
     """
-    def __init__(self, metric='proportion', relative_effect=False, nsim=100,
-                 variants=None, comparisons=None, alternative='two-tailed', alpha=0.05,
-                 correction='bonferroni', fdr_method='indep'):
+    def __init__(self, metric: str = 'proportion', relative_effect: bool = False, nsim: int = 100,
+                 variants: int = None, comparisons: List[Tuple[int, int]] = None, alternative: str = 'two-tailed', alpha: float = 0.05,
+                 correction: str = 'bonferroni', fdr_method: str = 'indep') -> None:
         """
         PowerSim class for simulation of power analysis.
 
@@ -58,8 +59,8 @@ class PowerSim:
         self.correction = correction
         self.fdr_method = fdr_method
 
-    def __run_experiment(self, baseline=[1.0], sample_size=[100], effect=[0.10],
-                         compliance=[1.0], standard_deviation=[1]):
+    def __run_experiment(self, baseline: List[float] = [1.0], sample_size: List[int] = [100], effect: List[float] = [0.10],
+                         compliance: List[float] = [1.0], standard_deviation: List[float] = [1]) -> Tuple[np.ndarray, np.ndarray]:
         """
         Simulate data to run power analysis.
 
@@ -168,7 +169,7 @@ class PowerSim:
 
         return dd, vv
 
-    def get_power(self, baseline=[1.0], effect=[0.10], sample_size=[1000], compliance=[1.0], standard_deviation=[1]):
+    def get_power(self, baseline: List[float] = [1.0], effect: List[float] = [0.10], sample_size: List[int] = [1000], compliance: List[float] = [1.0], standard_deviation: List[float] = [1]) -> pd.DataFrame:
         '''
         Estimate power using simulation.
 
@@ -255,8 +256,8 @@ class PowerSim:
 
         return power
 
-    def grid_sim_power(self, baseline_rates=None, effects=None, sample_sizes=None,
-                       compliances=[[1]], standard_deviations=[[1]], threads=3, plot=False):
+    def grid_sim_power(self, baseline_rates: List[float] = None, effects: List[float] = None, sample_sizes: List[int] = None,
+                       compliances: List[List[float]] = [[1]], standard_deviations: List[List[float]] = [[1]], threads: int = 3, plot: bool = False) -> pd.DataFrame:
         """
         Return Pandas DataFrame with parameter combinations and statistical power
 
@@ -318,7 +319,7 @@ class PowerSim:
             self.plot_power(grid)
         return grid
 
-    def plot_power(self, data):
+    def plot_power(self, data: pd.DataFrame) -> None:
         '''
         Plot statistical power by scenario
         '''
@@ -342,14 +343,14 @@ class PowerSim:
             plt.setp(plot.get_xticklabels(), rotation=45)
             plt.show()
 
-    def __expand_grid(self, dictionary):
+    def __expand_grid(self, dictionary: Dict[str, List[Union[float, int]]]) -> pd.DataFrame:
         '''
         Auxiliary function to expand a dictionary
         '''
         return pd.DataFrame([row for row in itertools.product(*dictionary.values())],
                             columns=dictionary.keys())
 
-    def bonferroni(self, pvals, alpha=0.05):
+    def bonferroni(self, pvals: np.ndarray, alpha: float = 0.05) -> np.ndarray:
         """A function for controlling the FWER at some level alpha using the
         classical Bonferroni procedure.
 
@@ -367,7 +368,7 @@ class PowerSim:
         m, pvals = len(pvals), np.asarray(pvals)
         return pvals < alpha / float(m)
 
-    def hochberg(self, pvals, alpha=0.05):
+    def hochberg(self, pvals: np.ndarray, alpha: float = 0.05) -> np.ndarray:
         """A function for controlling the FWER using Hochberg's procedure.
 
         Parameters
@@ -391,7 +392,7 @@ class PowerSim:
         significant[ind[0:np.sum(test)]] = True
         return significant
 
-    def holm_bonferroni(self, pvals, alpha=0.05):
+    def holm_bonferroni(self, pvals: np.ndarray, alpha: float = 0.05) -> np.ndarray:
         """A function for controlling the FWER using the Holm-Bonferroni
         procedure.
 
@@ -418,7 +419,7 @@ class PowerSim:
         significant[ind[0:m - np.sum(test)]] = True
         return significant
 
-    def sidak(self, pvals, alpha=0.05):
+    def sidak(self, pvals: np.ndarray, alpha: float = 0.05) -> np.ndarray:
         """A function for controlling the FWER at some level alpha using the
         procedure by Sidak.
 
@@ -437,7 +438,7 @@ class PowerSim:
         n, pvals = len(pvals), np.asarray(pvals)
         return pvals < 1. - (1. - alpha) ** (1. / n)
 
-    def lsu(self, pvals, q=0.05):
+    def lsu(self, pvals: np.ndarray, q: float = 0.05) -> np.ndarray:
         """The (non-adaptive) one-stage linear step-up procedure (LSU) for
         controlling the false discovery rate, i.e. the classic FDR method
         proposed by Benjamini & Hochberg (1995).
