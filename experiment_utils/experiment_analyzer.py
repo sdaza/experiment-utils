@@ -655,8 +655,9 @@ class ExperimentAnalyzer:
         """
         if self._results is not None:
             return self._results
-        self._logger.warning('Run the `get_effects` function first!')
-        return None
+        else:
+            self._logger.warning('Run the `get_effects` function first!')
+            return None
 
     @property
     def balance(self) -> Optional[pd.DataFrame]:
@@ -665,8 +666,9 @@ class ExperimentAnalyzer:
         """
         if len(self._balance) > 0:
             return self._balance
-        self._logger.warning('No balance information available!')
-        return None
+        else:
+            self._logger.warning('No balance information available!')
+            return None
 
     @property
     def adjusted_balance(self) -> Optional[pd.DataFrame]:
@@ -675,8 +677,9 @@ class ExperimentAnalyzer:
         """
         if len(self._adjusted_balance) > 0:
             return self._adjusted_balance
-        self._logger.warning('No adjusted balance information available!')
-        return None
+        else:
+            self._logger.warning('No adjusted balance information available!')
+            return None
 
     def __ensure_spark_df(self, dataframe: Union[pd.DataFrame, DataFrame]) -> DataFrame:
         """
@@ -685,7 +688,8 @@ class ExperimentAnalyzer:
         if isinstance(dataframe, pd.DataFrame):
             spark_df = spark.createDataFrame(dataframe)
             return spark_df
-        return dataframe
+        else:
+            return dataframe
 
     def get_attribute(self, attribute: str) -> Optional[str]:
         """
