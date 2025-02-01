@@ -107,7 +107,7 @@ class ExperimentAnalyzer:
             self._covariates = self._regression_covariates
 
         # check if any covariate is a string from pyspark dataframe
-        if any(self._data.schema[c].dataType == StringType() for c in covariates):
+        if any(self._data.schema[c].dataType == StringType() for c in self._covariates):
             log_and_raise_error(self._logger, "Covariates should be numeric, for categorical columns use dummy variables!")
 
         # regression covariates has to be a subset of covariates
