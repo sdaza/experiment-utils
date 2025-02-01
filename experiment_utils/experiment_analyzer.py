@@ -10,6 +10,7 @@ import numpy as np
 from scipy.stats import gaussian_kde
 from scipy import stats
 from pyspark.sql import functions as F
+from pyspark.sql.types import StringType
 from pyspark.sql import DataFrame
 from .utils import log_and_raise_error, get_logger
 from .spark_instance import *
@@ -43,7 +44,7 @@ class ExperimentAnalyzer:
     max_ps_score : float, optional
         Maximum propensity score, by default 0.95
     polynomial_ipw : bool, optional
-        Use polynomial and interaction features for IPW, by default True
+        Use polynomial and interaction features for IPW, by default False. It can be slow for large datasets.
     assess_overlap : bool, optional
         Assess overlap between treatment and control groups (slow) when using IPW to adjust covariates, by default False
     instrument_col : str, optional
@@ -66,7 +67,7 @@ class ExperimentAnalyzer:
         propensity_score_method: str = 'logistic',
         min_ps_score: float = 0.05,
         max_ps_score: float = 0.95,
-        polynomial_ipw: bool = True,
+        polynomial_ipw: bool = False,
         instrument_col: Optional[str] = None,
         alpha: float = 0.05,
         regression_covariates: Optional[List[str]] = None,
@@ -104,6 +105,10 @@ class ExperimentAnalyzer:
         # impute covariates from regression covariates
         if (len(self._covariates) == 0) & (len(self._regression_covariates) > 0):
             self._covariates = self._regression_covariates
+
+        # check if any covariate is a string from pyspark dataframe
+        if any(self._data.schema[c].dataType == StringType() for c in covariates):
+            log_and_raise_error(self._logger, "Covariates should be numeric, for categorical columns use dummy variables!")
 
         # regression covariates has to be a subset of covariates
         if len(self._regression_covariates) > 0:
