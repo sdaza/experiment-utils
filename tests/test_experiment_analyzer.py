@@ -94,6 +94,24 @@ def test_no_covariates(sample_data):
         pytest.fail(f" raised an exception: {e}")
 
 
+def test_no_experiment_identifier(sample_data):
+    """Test get_effects no covariates"""
+    outcomes = "conversion"
+    treatment_col = "treatment"
+
+    analyzer = ExperimentAnalyzer(
+        data=sample_data,
+        outcomes=outcomes,
+        treatment_col=treatment_col)
+
+    try:
+        analyzer.get_effects()
+        analyzer.results
+        assert True
+    except Exception as e:
+        pytest.fail(f" raised an exception: {e}")
+
+
 def test_regression_covariates(sample_data):
     """Test get_effects regression covariates"""
     outcomes = "conversion"

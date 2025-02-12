@@ -115,6 +115,12 @@ class ExperimentAnalyzer:
             if not set(self._regression_covariates).issubset(set(self._covariates)):
                 log_and_raise_error(self._logger, "Regression covariates should be a subset of covariates")
 
+        # create an experiment id if there is not one
+        if len(self._experiment_identifier) == 0:
+            self._data = self._data.withColumn("experiment_id", F.lit(1))
+            self._experiment_identifier = ["experiment_id"]
+            self._logger.warning("No experiment identifier specified, assuming data is a single experiment!")
+
         # check if all required columns are present
         required_columns = (self._experiment_identifier + [self._treatment_col] + self._outcomes +
                             self._covariates + ([self._instrument_col] if self._instrument_col is not None else []))
