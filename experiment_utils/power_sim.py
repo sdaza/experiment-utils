@@ -331,7 +331,7 @@ class PowerSim:
                     remaining = remaining[~remaining.index.isin(temp.index)]
 
                 if self.relative_effect:
-                    effects = [1] + [1+e for e in effect]
+                    effects = [1] + [1 + e for e in effect]
                     boot_samples[j] = temp[metric_col].values * effects[j]
                 else:
                     effects = [0] + effect
