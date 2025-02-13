@@ -395,7 +395,7 @@ class ExperimentAnalyzer:
                         covariates=final_covariates,
                         weights_col=self._target_weights[self._target_ipw_effect]
                     )
-                    adjusted_balance["experiment"] = [experiment_tuple] * len(adjusted_balance)
+                    adjusted_balance["experiment"] = [experiment_tuple] * adjusted_balance.shape[0]
                     adjusted_balance = self.__transform_tuple_column(
                         adjusted_balance, "experiment", self._experiment_identifier)
                     self._adjusted_balance.append(adjusted_balance)
