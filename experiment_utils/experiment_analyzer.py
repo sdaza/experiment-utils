@@ -629,7 +629,8 @@ class ExperimentAnalyzer:
                 self._logger.info('Imbalance without adjustments!')
                 return b
         else:
-            pass
+            self._logger.warning('No imbalance information available!')
+            return None
 
     def __transform_tuple_column(self, df: pd.DataFrame, tuple_column: str, new_columns: List[str]) -> pd.DataFrame:
         """
