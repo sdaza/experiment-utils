@@ -507,7 +507,7 @@ class ExperimentAnalyzer:
             lambda df: pd.Series(self.__get_fixed_meta_analysis_estimate(df))
         ).reset_index()
 
-        result_columns = grouping_cols + ['experiments', 'treated_units', 'control_units',
+        result_columns = grouping_cols + ['experiments', 'control_units', 'treated_units',
                                           'absolute_effect', 'relative_effect', 'stat_significance',
                                           'standard_error', 'pvalue']
         if 'balance' in data.columns:
@@ -533,8 +533,8 @@ class ExperimentAnalyzer:
 
         meta_results = {
             'experiments': int(data.shape[0]),
-            'treated_units': int(data['treated_units'].sum()),
             'control_units': int(data['control_units'].sum()),
+            'treated_units': int(data['treated_units'].sum()),
             'absolute_effect': absolute_estimate,
             'relative_effect': relative_estimate,
             'standard_error': pooled_standard_error,
