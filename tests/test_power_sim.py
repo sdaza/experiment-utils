@@ -42,7 +42,7 @@ def test_power_from_data():
         "converted": np.random.binomial(1, 0.15, n)}
     )
     try:
-        p.simulate_power_from_data(df=df, metric_col='converted', effect=[0.03], sample_size=[300])
+        p.get_power_from_data(df=df, metric_col='converted', effect=[0.03], sample_size=[300])
         assert True
     except Exception as e:
         pytest.fail(f" raised an exception: {e}")

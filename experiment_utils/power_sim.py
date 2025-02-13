@@ -256,7 +256,7 @@ class PowerSim:
 
         return power
 
-    def simulate_power_from_data(self, df: pd.DataFrame, metric_col: str, sample_size: List[int] = [100], effect: List[float] = [0.10], compliance: List[float] = [1.0]) -> pd.DataFrame:
+    def get_power_from_data(self, df: pd.DataFrame, metric_col: str, sample_size: List[int] = [100], effect: List[float] = [0.10], compliance: List[float] = [1.0]) -> pd.DataFrame:
         """
         Simulate statistical power using samples from the provided data.
 
