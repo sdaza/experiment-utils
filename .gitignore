@@ -3,3 +3,4 @@ testing
 notebooks
 __pycache__
 experiment_utils.egg-info
+tests/interactive_testing.py
