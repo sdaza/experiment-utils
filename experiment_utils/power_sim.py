@@ -256,6 +256,136 @@ class PowerSim:
 
         return power
 
+    def simulate_power_from_data(self, df: pd.DataFrame, metric_col: str, sample_size: List[int] = [100], effect: List[float] = [0.10], compliance: List[float] = [1.0]) -> pd.DataFrame:
+        """
+        Simulate statistical power using samples from the provided data.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Input dataframe containing the metric data.
+        metric_col : str
+            Name of the column in the dataframe that contains the measurement used for testing.
+        sample_size : list
+            List of sample sizes for control and each variant group.
+        effect : list
+            List of effect sizes for each variant group.
+        compliance : list
+            List of compliance rates for each variant group.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with each comparison (as defined in self.comparisons) and the corresponding estimated power.
+        """
+        # Verify metric column exists
+        if metric_col not in df.columns:
+            log_and_raise_error(self.logger, f"Column '{metric_col}' not found in dataframe.")
+
+            # initial checks
+        if len(effect) != self.variants:
+            if len(effect) > 1:
+                log_and_raise_error(self.logger, 'Effects should be same length as the number of self.variants or length 1!')
+            effect = list(itertools.repeat(effect[0], self.variants))
+
+        if len(compliance) != self.variants:
+            if len(compliance) > 1:
+                log_and_raise_error(self.logger, 'Compliance rates should be same length as the number of self.variants or length 1!')
+            compliance = list(itertools.repeat(compliance[0], self.variants))
+
+        # compliance cannot be higher than 1 or lower than 0
+        if any([c > 1 or c < 0 for c in compliance]):
+            log_and_raise_error(self.logger, 'Compliance rates should be between 0 and 1!')
+
+        if len(sample_size) != self.variants + 1:
+            if len(sample_size) > 1:
+                log_and_raise_error(self.logger, 'N should be same length as the number of self.variants + 1 or length 1!')
+            sample_size = list(itertools.repeat(sample_size[0], self.variants + 1))
+
+        # The sum of sample size cannot be higher than the number of rows in the dataframe
+        if sum(sample_size) > df.shape[0]:
+            log_and_raise_error(self.logger, 'Sum of sample sizes cannot be higher than the number of rows in the dataframe!')
+
+        # Adjust sample size by compliance
+        sample_size = [int(np.round(s * c)) for s, c in zip(sample_size, [1] + compliance)]
+
+        # Initialize storage for significance results over simulation iterations
+        pvalues_dict = {c: [] for c in range(len(self.comparisons))}
+        n_iter = self.nsim  # number of bootstrap iterations
+
+        print(self.comparisons)
+        print(range(self.variants + 1))
+
+        for i in range(n_iter):
+            # Create a bootstrap sample per group (sampling with replacement) for each variant and sample size
+
+            boot_samples = {}
+            remaining = None
+
+            for j in range(self.variants + 1):
+                if remaining is None:
+                    temp = df.sample(n=sample_size[j], replace=False)
+                    remaining = df[~df.index.isin(temp.index)]
+                else:
+                    temp = remaining.sample(n=sample_size[j], replace=False)
+                    remaining = remaining[~remaining.index.isin(temp.index)]
+
+                if self.relative_effect:
+                    effects = [1] + [1+e for e in effect]
+                    boot_samples[j] = temp[metric_col].values * effects[j]
+                else:
+                    effects = [0] + effect
+                    boot_samples[j] = temp[metric_col].values + effects[j]
+
+            # For each comparison defined in self.comparisons, perform the appropriate test
+            iter_pvals = []
+            for j, h in self.comparisons:
+                if self.metric == 'average':
+                    # Two-sample t-test (unequal variance)
+                    try:
+                        t_stat, pval = stats.ttest_ind(boot_samples[j], boot_samples[h], equal_var=False)
+                    except Exception as e:
+                        self.logger.error(f"Error while performing t-test: {e}")
+                        pval = np.nan
+                elif self.metric == 'proportion':
+                    # Assume binary data (0/1)
+                    count = [np.sum(boot_samples[h]), np.sum(boot_samples[j])]
+                    nobs = [len(boot_samples[h]), len(boot_samples[j])]
+                    try:
+                        t_stat, pval = sm.stats.proportions_ztest(count, nobs)
+                    except Exception as e:
+                        self.logger.error(f"Error while performing proportions_ztest: {e}")
+                        pval = np.nan
+                iter_pvals.append(pval)
+
+            # Adjust multiple comparisons for this iteration
+            pvalue_adjustment = {'two-tailed': 1, 'greater': 0.5, 'smaller': 0.5}
+            correction_methods = {
+                'bonferroni': self.bonferroni,
+                'holm': self.holm_bonferroni,
+                'hochberg': self.hochberg,
+                'sidak': self.sidak,
+                'fdr': self.lsu
+            }
+            if self.correction in correction_methods:
+                significances = correction_methods[self.correction](
+                    np.array(iter_pvals), self.alpha / pvalue_adjustment[self.alternative])
+            else:
+                # No adjustment provided; simply check p < alpha
+                significances = np.array(np.array(iter_pvals) < self.alpha)
+
+            # Save boolean outcomes for each comparison
+            for idx, sig in enumerate(significances):
+                pvalues_dict[idx].append(sig)
+
+        # Compute power as the mean rejection rate for each comparison
+        power_estimates = {idx: np.mean(sig_arr) for idx, sig_arr in pvalues_dict.items()}
+        power_df = pd.DataFrame(list(power_estimates.items()), columns=["comparison_index", "power"])
+        # Map index to actual comparison tuple
+        power_df["comparisons"] = power_df["comparison_index"].map(dict(enumerate(self.comparisons)))
+        power_df = power_df[["comparisons", "power"]]
+        return power_df
+
     def grid_sim_power(self, baseline_rates: List[float] = None, effects: List[float] = None, sample_sizes: List[int] = None,
                        compliances: List[List[float]] = [[1]], standard_deviations: List[List[float]] = [[1]], threads: int = 3, plot: bool = False) -> pd.DataFrame:
         """
