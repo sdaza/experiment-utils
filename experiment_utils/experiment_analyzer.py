@@ -380,7 +380,7 @@ class ExperimentAnalyzer:
                 balance = self.calculate_smd(
                     data=temp_pd, covariates=final_covariates
                 )
-                balance["experiment"] = [experiment_tuple] * len(balance)
+                balance["experiment"] = [experiment_tuple] * balance.shape[0]
                 balance = self.__transform_tuple_column(balance, "experiment", self._experiment_identifier)
                 self._balance.append(balance)
                 self._logger.info('::::: Balance: %.2f', np.round(balance["balance_flag"].mean(), 2))
