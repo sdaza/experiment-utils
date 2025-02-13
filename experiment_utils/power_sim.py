@@ -313,9 +313,6 @@ class PowerSim:
         pvalues_dict = {c: [] for c in range(len(self.comparisons))}
         n_iter = self.nsim  # number of bootstrap iterations
 
-        print(self.comparisons)
-        print(range(self.variants + 1))
-
         for i in range(n_iter):
             # Create a bootstrap sample per group (sampling with replacement) for each variant and sample size
 
