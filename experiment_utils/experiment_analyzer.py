@@ -119,7 +119,7 @@ class ExperimentAnalyzer:
         if len(self._experiment_identifier) == 0:
             self._data = self._data.withColumn("experiment_id", F.lit(1))
             self._experiment_identifier = ["experiment_id"]
-            self._logger.warning("No experiment identifier specified, assuming data is a single experiment!")
+            self._logger.warning("No experiment identifier, assuming data is from a single experiment!")
 
         # check if all required columns are present
         required_columns = (self._experiment_identifier + [self._treatment_col] + self._outcomes +
