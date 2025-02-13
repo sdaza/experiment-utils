@@ -119,7 +119,7 @@ class ExperimentAnalyzer:
         if len(self._experiment_identifier) == 0:
             self._data = self._data.withColumn("experiment_id", F.lit(1))
             self._experiment_identifier = ["experiment_id"]
-            self._logger.warning("No experiment identifier specified, assuming data is a single experiment!")
+            self._logger.warning("No experiment identifier, assuming data is from a single experiment!")
 
         # check if all required columns are present
         required_columns = (self._experiment_identifier + [self._treatment_col] + self._outcomes +
@@ -380,7 +380,7 @@ class ExperimentAnalyzer:
                 balance = self.calculate_smd(
                     data=temp_pd, covariates=final_covariates
                 )
-                balance["experiment"] = [experiment_tuple] * len(balance)
+                balance["experiment"] = [experiment_tuple] * balance.shape[0]
                 balance = self.__transform_tuple_column(balance, "experiment", self._experiment_identifier)
                 self._balance.append(balance)
                 self._logger.info('::::: Balance: %.2f', np.round(balance["balance_flag"].mean(), 2))
@@ -395,7 +395,7 @@ class ExperimentAnalyzer:
                         covariates=final_covariates,
                         weights_col=self._target_weights[self._target_ipw_effect]
                     )
-                    adjusted_balance["experiment"] = [experiment_tuple] * len(adjusted_balance)
+                    adjusted_balance["experiment"] = [experiment_tuple] * adjusted_balance.shape[0]
                     adjusted_balance = self.__transform_tuple_column(
                         adjusted_balance, "experiment", self._experiment_identifier)
                     self._adjusted_balance.append(adjusted_balance)
@@ -507,7 +507,7 @@ class ExperimentAnalyzer:
             lambda df: pd.Series(self.__get_fixed_meta_analysis_estimate(df))
         ).reset_index()
 
-        result_columns = grouping_cols + ['experiments', 'treated_units', 'control_units',
+        result_columns = grouping_cols + ['experiments', 'control_units', 'treated_units',
                                           'absolute_effect', 'relative_effect', 'stat_significance',
                                           'standard_error', 'pvalue']
         if 'balance' in data.columns:
@@ -533,8 +533,8 @@ class ExperimentAnalyzer:
 
         meta_results = {
             'experiments': int(data.shape[0]),
-            'treated_units': int(data['treated_units'].sum()),
             'control_units': int(data['control_units'].sum()),
+            'treated_units': int(data['treated_units'].sum()),
             'absolute_effect': absolute_estimate,
             'relative_effect': relative_estimate,
             'standard_error': pooled_standard_error,
@@ -629,7 +629,8 @@ class ExperimentAnalyzer:
                 self._logger.info('Imbalance without adjustments!')
                 return b
         else:
-            pass
+            self._logger.warning('No imbalance information available!')
+            return None
 
     def __transform_tuple_column(self, df: pd.DataFrame, tuple_column: str, new_columns: List[str]) -> pd.DataFrame:
         """
