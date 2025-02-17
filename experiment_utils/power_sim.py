@@ -11,6 +11,7 @@ import seaborn as sns
 from multiprocess.pool import ThreadPool
 from scipy import stats
 import statsmodels.api as sm
+from statsmodels.genmod.families import Tweedie
 from .utils import log_and_raise_error, get_logger
 from typing import List, Tuple, Dict, Union
 
@@ -19,7 +20,7 @@ class PowerSim:
     """"
     PowerSim class for simulation of power analysis.
     """
-    def __init__(self, metric: str = 'proportion', relative_effect: bool = False, nsim: int = 100,
+    def __init__(self, metric: str = 'proportion', estimate: str = 'proportion', relative_effect: bool = False, nsim: int = 100,
                  variants: int = None, comparisons: List[Tuple[int, int]] = None, alternative: str = 'two-tailed', alpha: float = 0.05,
                  correction: str = 'bonferroni', fdr_method: str = 'indep') -> None:
         """
@@ -28,7 +29,9 @@ class PowerSim:
         Parameters
         ----------
         metric : str
-            Count, proportion, or average
+            Which kind of metric to simulate: count, proportion, or average
+        estimate : str
+            What kind estimate to use: count, proportion, average, regression, or tweedie regression
         relative effect : bool
             True when change is percentual (not absolute).
         variants : int
@@ -50,6 +53,7 @@ class PowerSim:
 
         self.logger = get_logger('Power Simulator')
         self.metric = metric
+        self.estimate = estimate
         self.relative_effect = relative_effect
         self.variants = variants
         self.comparisons = list(itertools.combinations(range(self.variants + 1), 2)) if comparisons is None else comparisons
@@ -59,7 +63,7 @@ class PowerSim:
         self.correction = correction
         self.fdr_method = fdr_method
 
-    def __run_experiment(self, baseline: List[float] = [1.0], sample_size: List[int] = [100], effect: List[float] = [0.10],
+    def __run_experiment(self, baseline: List[float] = None, sample_size: List[int] = [100], effect: List[float] = [0.10],
                          compliance: List[float] = [1.0], standard_deviation: List[float] = [1]) -> Tuple[np.ndarray, np.ndarray]:
         """
         Simulate data to run power analysis.
@@ -169,12 +173,14 @@ class PowerSim:
 
         return dd, vv
 
-    def get_power(self, baseline: List[float] = [1.0], effect: List[float] = [0.10], sample_size: List[int] = [1000], compliance: List[float] = [1.0], standard_deviation: List[float] = [1]) -> pd.DataFrame:
+    def get_power(self, baseline: List[float] = None, effect: List[float] = [0.10], sample_size: List[int] = [1000], compliance: List[float] = [1.0], standard_deviation: List[float] = [1]) -> pd.DataFrame:
         '''
         Estimate power using simulation.
 
         Parameters
         ----------
+        estimate: str
+            Type of estimate to use. Options are 'proportion', 'average', 'count', 'regression', 'tweedie'.
         baseline : list
             List baseline rates for counts or proportions, or base average for mean comparisons.
         effect : list
@@ -184,12 +190,19 @@ class PowerSim:
         compliance : list
             List with compliance values.
         standard_deviation : list
-            List of standard deviations of control and variants.
+            List of standard deviations of control and variants when using average metric.
 
         Returns
         -------
         power : float
         '''
+
+        # initial checks
+        if baseline is None:
+            log_and_raise_error(self.logger, 'Baseline values (control) should be provided!')
+
+        if self.estimate not in ['proportion', 'average', 'count', 'regression', 'tweedie']:
+            log_and_raise_error(self.logger, 'Estimate should be one of proportion, average, count, regression, or tweedie!')
 
         # create empty values for results
         pvalues = {}
@@ -208,8 +221,7 @@ class PowerSim:
             for j, h in self.comparisons:
 
                 # getting pvalues
-                if self.metric == 'count':
-
+                if self.estimate == 'count':
                     ty = np.append(y[np.isin(x, j)], y[np.isin(x, h)])
                     tx = np.append(x[np.isin(x, j)], x[np.isin(x, h)])
                     tx[np.isin(tx, j)] = 0
@@ -218,15 +230,34 @@ class PowerSim:
                     model = sm.Poisson(ty, sm.add_constant(tx))
                     pm = model.fit(disp=False)
                     pvalue = pm.pvalues[1]
-                    z = pm.params[1]
 
-                elif self.metric == 'proportion':
+                elif self.estimate == 'proportion':
                     z, pvalue = sm.stats.proportions_ztest(
                         [np.sum(y[np.isin(x, h)]), np.sum(y[np.isin(x, j)])],
                         [len(y[np.isin(x, h)]), len(y[np.isin(x, j)])])
 
-                elif self.metric == 'average':
+                elif self.estimate == 'average':
                     z, pvalue = stats.ttest_ind(y[np.isin(x, h)], y[np.isin(x, j)], equal_var=False)
+
+                elif self.estimate == 'regression':
+                    ty = np.append(y[np.isin(x, j)], y[np.isin(x, h)])
+                    tx = np.append(x[np.isin(x, j)], x[np.isin(x, h)])
+                    tx[np.isin(tx, j)] = 0
+                    tx[np.isin(tx, h)] = 1
+
+                    model = sm.OLS(ty, sm.add_constant(tx))
+                    pm = model.fit(cov_type="HC3")
+                    pvalue = pm.pvalues[1]
+
+                elif self.estimate == 'tweedie':
+                    ty = np.append(y[np.isin(x, j)], y[np.isin(x, h)])
+                    tx = np.append(x[np.isin(x, j)], x[np.isin(x, h)])
+                    tx[np.isin(tx, j)] = 0
+                    tx[np.isin(tx, h)] = 1
+
+                    model = sm.GLM(ty, sm.add_constant(tx), family=Tweedie(var_power=1))
+                    pm = model.fit(disp=False)
+                    pvalue = pm.pvalues[1]
 
                 l_pvalues.append(pvalue)
 
@@ -306,12 +337,15 @@ class PowerSim:
         if sum(sample_size) > df.shape[0]:
             log_and_raise_error(self.logger, 'Sum of sample sizes cannot be higher than the number of rows in the dataframe!')
 
+        if self.estimate not in ['proportion', 'average', 'count', 'regression', 'tweedie']:
+            log_and_raise_error(self.logger, 'Estimate should be one of proportion, average, count, regression, or tweedie!')
+
         # Adjust sample size by compliance
         sample_size = [int(np.round(s * c)) for s, c in zip(sample_size, [1] + compliance)]
 
         # Initialize storage for significance results over simulation iterations
         pvalues_dict = {c: [] for c in range(len(self.comparisons))}
-        n_iter = self.nsim  # number of bootstrap iterations
+        n_iter = self.nsim  # number of iterations
 
         for i in range(n_iter):
             # Create a bootstrap sample per group (sampling with replacement) for each variant and sample size
@@ -337,14 +371,15 @@ class PowerSim:
             # For each comparison defined in self.comparisons, perform the appropriate test
             iter_pvals = []
             for j, h in self.comparisons:
-                if self.metric == 'average':
+
+                if self.estimate == 'average':
                     # Two-sample t-test (unequal variance)
                     try:
                         t_stat, pval = stats.ttest_ind(boot_samples[j], boot_samples[h], equal_var=False)
                     except Exception as e:
                         self.logger.error(f"Error while performing t-test: {e}")
                         pval = np.nan
-                elif self.metric == 'proportion':
+                elif self.estimate == 'proportion':
                     # Assume binary data (0/1)
                     count = [np.sum(boot_samples[h]), np.sum(boot_samples[j])]
                     nobs = [len(boot_samples[h]), len(boot_samples[j])]
@@ -353,6 +388,27 @@ class PowerSim:
                     except Exception as e:
                         self.logger.error(f"Error while performing proportions_ztest: {e}")
                         pval = np.nan
+                elif self.estimate == 'regression':
+                    treatment = np.array([0] * len(boot_samples[j]) + [1] * len(boot_samples[h]))
+                    y = np.concatenate((boot_samples[j], boot_samples[h]))
+                    try:
+                        model = sm.OLS(y, sm.add_constant(treatment))
+                        results = model.fit(cov_type="HC3")
+                        pval = results.pvalues[1]
+                    except Exception as e:
+                        self.logger.error(f"Error while performing regression: {e}")
+                        pval = np.nan
+                elif self.estimate == 'tweedie':
+                    treatment = np.array([0] * len(boot_samples[j]) + [1] * len(boot_samples[h]))
+                    y = np.concatenate((boot_samples[j], boot_samples[h]))
+                    try:
+                        model = sm.GLM(y, sm.add_constant(treatment), family=sm.families.Tweedie(var_power=1.5))
+                        results = model.fit(disp=False)
+                        pval = results.pvalues[1]
+                    except Exception as e:
+                        self.logger.error(f"Error while performing tweedie regression: {e}")
+                        pval = np.nan
+
                 iter_pvals.append(pval)
 
             # Adjust multiple comparisons for this iteration
@@ -384,7 +440,9 @@ class PowerSim:
         return power_df
 
     def grid_sim_power(self, baseline_rates: List[float] = None, effects: List[float] = None, sample_sizes: List[int] = None,
-                       compliances: List[List[float]] = [[1]], standard_deviations: List[List[float]] = [[1]], threads: int = 3, plot: bool = False) -> pd.DataFrame:
+                       df: pd.DataFrame = None, metric_col: str = None,
+                       compliances: List[List[float]] = [[1]], standard_deviations: List[List[float]] = [[1]],
+                       threads: int = 3, plot: bool = False) -> pd.DataFrame:
         """
         Return Pandas DataFrame with parameter combinations and statistical power
 
@@ -396,33 +454,62 @@ class PowerSim:
             List with effect sizes.
         sample_sizes : list
             List with sample for control and variants.
+        from_data : bool
+            Whether simulate from data.
+        df : dataframe
+            Dataframe if the getting power from data.
+        metric_col:
+            Column of the dataframe for simulation when getting power from data.
         compliances : list
             List with compliance values.
         standard_deviations : list
-            List of standard deviations of control and variants.
+            List of standard deviations when using average metric, by default 1.
         threads : int
             Number of threads for parallelization.
         plot : bool
             Whether to plot the results.
         """
 
-        pdict = {'baseline': baseline_rates, 'effect': effects, 'sample_size': sample_sizes,
-                 'compliance': compliances, 'standard_deviation': standard_deviations}
+        if df is None:
+            from_data = False
+        else:
+            from_data = True
+
+        if from_data:
+            pdict = {'effect': effects, 'sample_size': sample_sizes, 'compliance': compliances}
+        else:
+            pdict = {'baseline': baseline_rates, 'effect': effects, 'sample_size': sample_sizes,
+                     'compliance': compliances, 'standard_deviation': standard_deviations}
+
         grid = self.__expand_grid(pdict)
 
-        parameters = list(grid.itertuples(index=False, name=None))
-
+        # Add extra columns before using itertuples
         grid['nsim'] = self.nsim
         grid['alpha'] = self.alpha
         grid['alternative'] = self.alternative
-        grid['metric'] = self.metric
+        if self.metric is not None:
+            grid['metric'] = self.metric
+        grid['estimate'] = self.estimate
         grid['variants'] = self.variants
         grid['comparisons'] = str(self.comparisons)
         grid['relative_effect'] = self.relative_effect
-        grid = grid.loc[:, ['baseline', 'effect', 'sample_size', 'compliance', 'standard_deviation',
-                            'variants', 'comparisons', 'nsim', 'alpha', 'alternative', 'metric', 'relative_effect']]
+        if metric_col is not None:
+            grid['metric_col'] = [metric_col] * len(grid)
+        if df is not None:
+            grid['df'] = [df] * len(grid)
+
+        # Columns to select
+        if from_data:
+            cols = ['df', 'metric_col', 'sample_size', 'effect', 'compliance']
+        else:
+            cols = ['baseline', 'effect', 'sample_size', 'compliance', 'standard_deviation']
+
+        grid = grid.loc[:, cols]
+        parameters = list(grid.itertuples(index=False, name=None))
+
         pool = ThreadPool(processes=threads)
-        results = pool.starmap(self.get_power, parameters)
+        function_to_use = self.get_power_from_data if from_data else self.get_power
+        results = pool.starmap(function_to_use, parameters)
         pool.close()
         pool.join()
 
@@ -439,6 +526,9 @@ class PowerSim:
         results = results.pivot(index=['index'], columns=['comparisons'], values=['power'])
         results.columns = [str((i, j)) for i, j in self.comparisons]
 
+        # remove df from grid
+        if from_data:
+            grid = grid.drop(['df', 'metric_col'], axis=1)
         grid = pd.concat([grid, results], axis=1)
         grid.sample_size = grid.sample_size.map(str)
         grid.effect = grid.effect.map(str)
@@ -454,7 +544,7 @@ class PowerSim:
         value_vars = [str((i, j)) for i, j in self.comparisons]
 
         cols = ['baseline', 'effect', 'sample_size', 'compliance', 'standard_deviation',
-                'variants', 'comparisons', 'nsim', 'alpha', 'alternative', 'metric', 'relative_effect']
+                'variants', 'comparisons', 'nsim', 'alpha', 'alternative', 'metric', 'estimate', 'relative_effect']
 
         temp = pd.melt(data, id_vars=cols, var_name='comparison', value_name='power', value_vars=value_vars)
 
@@ -470,12 +560,66 @@ class PowerSim:
             plt.setp(plot.get_xticklabels(), rotation=45)
             plt.show()
 
-    def __expand_grid(self, dictionary: Dict[str, List[Union[float, int]]]) -> pd.DataFrame:
-        '''
-        Auxiliary function to expand a dictionary
-        '''
-        return pd.DataFrame([row for row in itertools.product(*dictionary.values())],
-                            columns=dictionary.keys())
+    def __expand_grid(self, dictionary: Dict[str, List[Union[float, int, list]]]) -> pd.DataFrame:
+        """
+        Expand a dictionary of parameter lists into a DataFrame.
+
+        Two modes:
+
+        1. Zip mode: If all lists are either of length 1 or equal to the maximum list length,
+           then each parameter with length 1 is “recycled” and the rows are built by zipping
+       together the parameter values.
+
+        2. Cartesian mode: Otherwise, build the full cross product (cartesian grid) of the values,
+        and remove duplicate rows.
+
+        Parameters
+        ----------
+        dictionary : dict
+            A dictionary where each key maps to a list of values.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame whose rows are either the zipped parameter values or the unique combinations
+            from the cartesian product.
+        """
+
+        # Determine lengths of each parameter list.
+        lengths = {key: len(val) for key, val in dictionary.items()}
+        max_length = max(lengths.values())
+
+        # Check if every list is either length 1 or max_length.
+        if all(ll == 1 or ll == max_length for ll in lengths.values()):
+            # Zip mode: "Recycle" the length-1 values.
+            recycled = {}
+            for key, vals in dictionary.items():
+                if len(vals) == 1:
+                    # replicate the value max_length times
+                    recycled[key] = vals * max_length
+                else:
+                    recycled[key] = vals
+            # Create a DataFrame by zipping the lists
+            return pd.DataFrame(recycled)
+
+        else:
+            # Cartesian mode: generate full product.
+            import itertools
+
+            # Compute the full cartesian product of parameter values.
+            product_rows = list(itertools.product(*dictionary.values()))
+
+            # Remove duplicates. To ensure the items are hashable (if they’re lists), we convert them
+            # to tuples.
+            unique_rows = []
+            seen = set()
+            for row in product_rows:
+                row_hashable = tuple(tuple(x) if isinstance(x, list) else x for x in row)
+                if row_hashable not in seen:
+                    seen.add(row_hashable)
+                    unique_rows.append(row)
+
+            return pd.DataFrame(unique_rows, columns=list(dictionary.keys()))
 
     def bonferroni(self, pvals: np.ndarray, alpha: float = 0.05) -> np.ndarray:
         """A function for controlling the FWER at some level alpha using the

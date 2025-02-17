@@ -7,7 +7,6 @@ from linearmodels.iv import IV2SLS
 from typing import Dict, List, Optional, Union
 from xgboost import XGBClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import PolynomialFeatures
 from .utils import log_and_raise_error, get_logger
 
 
@@ -18,8 +17,7 @@ class Estimators:
 
     def __init__(self, treatment_col: str, instrument_col: Optional[str] = None,
                  target_ipw_effect: str = 'ATT', alpha: float = 0.05,
-                 min_ps_score: float = 0.05, max_ps_score: float = 0.95,
-                 polynomial_ipw: bool = False) -> None:
+                 min_ps_score: float = 0.05, max_ps_score: float = 0.95) -> None:
 
         self._logger = get_logger('Estimators')
         self._treatment_col = treatment_col
@@ -28,7 +26,6 @@ class Estimators:
         self._alpha = alpha
         self._max_ps_score = max_ps_score
         self._min_ps_score = min_ps_score
-        self._polynomial_ipw = polynomial_ipw
 
     def __create_formula(self, outcome_variable: str, covariates: Optional[List[str]], model_type: str = 'regression') -> str:
         """
@@ -224,14 +221,7 @@ class Estimators:
 
         logistic_model = LogisticRegression(penalty=penalty, C=C, max_iter=max_iter)
 
-        if self._polynomial_ipw:
-            poly = PolynomialFeatures()
-            X = poly.fit_transform(data[covariates])
-            feature_names = poly.get_feature_names_out(covariates)
-            X = pd.DataFrame(X, columns=feature_names)
-        else:
-            X = data[covariates]
-
+        X = data[covariates]
         y = data[self._treatment_col]
         logistic_model.fit(X, y)
 

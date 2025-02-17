@@ -43,8 +43,6 @@ class ExperimentAnalyzer:
         Minimum propensity score, by default 0.05
     max_ps_score : float, optional
         Maximum propensity score, by default 0.95
-    polynomial_ipw : bool, optional
-        Use polynomial and interaction features for IPW, by default False. It can be slow for large datasets.
     assess_overlap : bool, optional
         Assess overlap between treatment and control groups (slow) when using IPW to adjust covariates, by default False
     instrument_col : str, optional
@@ -67,7 +65,6 @@ class ExperimentAnalyzer:
         propensity_score_method: str = 'logistic',
         min_ps_score: float = 0.05,
         max_ps_score: float = 0.95,
-        polynomial_ipw: bool = False,
         instrument_col: Optional[str] = None,
         alpha: float = 0.05,
         regression_covariates: Optional[List[str]] = None,
@@ -92,7 +89,7 @@ class ExperimentAnalyzer:
         self._balance = []
         self._adjusted_balance = []
         self._final_covariates = []
-        self._estimator = Estimators(treatment_col, instrument_col, target_ipw_effect, alpha, min_ps_score, max_ps_score, polynomial_ipw)
+        self._estimator = Estimators(treatment_col, instrument_col, target_ipw_effect, alpha, min_ps_score, max_ps_score)
 
         self._target_weights = {"ATT": "tips_stabilized_weight", "ATE": "ips_stabilized_weight", "ATC": "cips_stabilized_weight"}
 
