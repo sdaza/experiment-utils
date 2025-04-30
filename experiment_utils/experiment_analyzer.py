@@ -2,19 +2,19 @@
 ExperimentAnalyzer class to analyze and design experiments
 """
 
-from typing import Dict, List, Optional, Tuple, Union
 from functools import reduce
-import pandas as pd
-import numpy as np
 
-from scipy.stats import gaussian_kde
-from scipy import stats
+import numpy as np
+import pandas as pd
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import StringType
-from pyspark.sql import DataFrame
-from .utils import log_and_raise_error, get_logger
-from .spark_instance import *
+from scipy import stats
+from scipy.stats import gaussian_kde
+
 from .estimators import Estimators
+from .spark_instance import *  # noqa: F403
+from .utils import get_logger, log_and_raise_error
 
 
 class ExperimentAnalyzer:
@@ -58,19 +58,19 @@ class ExperimentAnalyzer:
     def __init__(
         self,
         data: DataFrame,
-        outcomes: List[str],
+        outcomes: list[str],
         treatment_col: str,
-        experiment_identifier: Optional[List[str]] = None,
-        covariates: Optional[List[str]] = None,
-        adjustment: Optional[str] = None,
+        experiment_identifier: list[str] | None = None,
+        covariates: list[str] | None = None,
+        adjustment: str | None = None,
         target_ipw_effect: str = "ATT",
         propensity_score_method: str = 'logistic',
         min_ps_score: float = 0.05,
         max_ps_score: float = 0.95,
         polynomial_ipw: bool = False,
-        instrument_col: Optional[str] = None,
+        instrument_col: str | None = None,
         alpha: float = 0.05,
-        regression_covariates: Optional[List[str]] = None,
+        regression_covariates: list[str] | None = None,
         assess_overlap: bool = False
     ) -> None:
 
@@ -92,9 +92,9 @@ class ExperimentAnalyzer:
         self._balance = []
         self._adjusted_balance = []
         self._final_covariates = []
-        self._estimator = Estimators(treatment_col, instrument_col, target_ipw_effect, alpha, min_ps_score, max_ps_score, polynomial_ipw)
+        self._estimator = Estimators(treatment_col, instrument_col, target_ipw_effect, alpha, min_ps_score, max_ps_score, polynomial_ipw)  # noqa: E501
 
-        self._target_weights = {"ATT": "tips_stabilized_weight", "ATE": "ips_stabilized_weight", "ATC": "cips_stabilized_weight"}
+        self._target_weights = {"ATT": "tips_stabilized_weight", "ATE": "ips_stabilized_weight", "ATC": "cips_stabilized_weight"}  # noqa: E501
 
     def __check_input(self) -> None:
 
@@ -108,7 +108,10 @@ class ExperimentAnalyzer:
 
         # check if any covariate is a string from pyspark dataframe
         if any(self._data.schema[c].dataType == StringType() for c in self._covariates):
-            log_and_raise_error(self._logger, "Covariates should be numeric, for categorical columns use dummy variables!")
+            log_and_raise_error(
+                self._logger,
+                "Covariates should be numeric, for categorical columns use dummy variables!"
+            )
 
         # regression covariates has to be a subset of covariates
         if len(self._regression_covariates) > 0:
@@ -128,13 +131,13 @@ class ExperimentAnalyzer:
         missing_columns = set(required_columns) - set(self._data.columns)
 
         if missing_columns:
-            log_and_raise_error(self._logger, f"The following required columns are missing from the dataframe: {missing_columns}")
+            log_and_raise_error(self._logger, f"The following required columns are missing from the dataframe: {missing_columns}")  # noqa: E501
         if len(self._covariates) == 0:
             self._logger.warning("No covariates specified, balance can't be assessed!")
 
         self._data = self._data.select(*required_columns)
 
-    def __get_binary_covariates(self, data: pd.DataFrame) -> List[str]:
+    def __get_binary_covariates(self, data: pd.DataFrame) -> list[str]:
         binary_covariates = []
         if self._covariates is not None:
             for c in self._covariates:
@@ -142,7 +145,7 @@ class ExperimentAnalyzer:
                     binary_covariates.append(c)
         return binary_covariates
 
-    def __get_numeric_covariates(self, data: pd.DataFrame) -> List[str]:
+    def __get_numeric_covariates(self, data: pd.DataFrame) -> list[str]:
         numeric_covariates = []
         if self._covariates is not None:
             for c in self._covariates:
@@ -150,7 +153,7 @@ class ExperimentAnalyzer:
                     numeric_covariates.append(c)
         return numeric_covariates
 
-    def impute_missing_values(self, data: pd.DataFrame, num_covariates: Optional[List[str]] = None, bin_covariates: Optional[List[str]] = None) -> pd.DataFrame:
+    def impute_missing_values(self, data: pd.DataFrame, num_covariates: list[str] | None = None, bin_covariates: list[str] | None = None) -> pd.DataFrame:  # noqa: E501
         """"
         Impute missing values for numeric and binary covariates
         """
@@ -166,7 +169,7 @@ class ExperimentAnalyzer:
 
         return data
 
-    def standardize_covariates(self, data: pd.DataFrame, covariates: List[str]) -> pd.DataFrame:
+    def standardize_covariates(self, data: pd.DataFrame, covariates: list[str]) -> pd.DataFrame:
         """
         Standardize covariates in the data.
 
@@ -174,7 +177,7 @@ class ExperimentAnalyzer:
         ----------
         data : pd.DataFrame
             Data to standardize
-        covariates : List[str]
+        covariates : list[str]
             List of covariates to standardize
 
         Returns
@@ -187,7 +190,7 @@ class ExperimentAnalyzer:
             data[f"z_{covariate}"] = (data[covariate] - data[covariate].mean()) / data[covariate].std()
         return data
 
-    def calculate_smd(self, data: pd.DataFrame, treatment_col: str = None, covariates: Optional[List[str]] = None, weights_col: str = "weights", threshold: float = 0.1) -> pd.DataFrame:
+    def calculate_smd(self, data: pd.DataFrame, treatment_col: str = None, covariates: list[str] | None = None, weights_col: str = "weights", threshold: float = 0.1) -> pd.DataFrame:  # noqa: E501
         """
         Calculate standardized mean differences (SMDs) between treatment and control groups.
 
@@ -252,7 +255,7 @@ class ExperimentAnalyzer:
 
         return smd_df
 
-    def get_overlap_coefficient(self, treatment_scores: np.ndarray, control_scores: np.ndarray, grid_points: int = 1000, bw_method: Optional[float] = None) -> float:
+    def get_overlap_coefficient(self, treatment_scores: np.ndarray, control_scores: np.ndarray, grid_points: int = 1000, bw_method: float | None = None) -> float:  # noqa: E501
         """
         Calculate the Overlap Coefficient between treatment and control propensity scores.
 
@@ -285,7 +288,7 @@ class ExperimentAnalyzer:
 
         return overlap_coefficient
 
-    def get_effects(self, min_binary_count: int = 100, adjustment: Optional[str] = None) -> pd.DataFrame:
+    def get_effects(self, min_binary_count: int = 100, adjustment: str | None = None) -> pd.DataFrame:
         """
         Calculate effects (uplifts), given the data and experimental units.
 
@@ -302,7 +305,7 @@ class ExperimentAnalyzer:
         balance: A Pandas DataFrame with balance metrics.
         adjusted_balance: A Pandas DataFrame with adjusted balance metrics.
         imbalance: A Pandas DataFrame with imbalance covariates.
-        """
+        """  # noqa: E501
 
         model = {
             None: self._estimator.linear_regression,
@@ -471,7 +474,7 @@ class ExperimentAnalyzer:
 
         self._results = self.__transform_tuple_column(clean_temp_results, 'experiment', self._experiment_identifier)
 
-    def combine_effects(self, data: Optional[pd.DataFrame] = None, grouping_cols: Optional[List[str]] = None) -> pd.DataFrame:
+    def combine_effects(self, data: pd.DataFrame | None = None, grouping_cols: list[str] | None = None) -> pd.DataFrame:
         """
         Combine effects across experiments using fixed effects meta-analysis.
 
@@ -518,7 +521,7 @@ class ExperimentAnalyzer:
         self._logger.info('Combining effects using fixed-effects meta-analysis!')
         return pooled_results[result_columns]
 
-    def __get_fixed_meta_analysis_estimate(self, data: pd.DataFrame) -> Dict[str, Union[int, float]]:
+    def __get_fixed_meta_analysis_estimate(self, data: pd.DataFrame) -> dict[str, int | float]:
         weights = 1 / (data['standard_error'] ** 2)
         absolute_estimate = np.sum(weights * data['absolute_effect']) / np.sum(weights)
         pooled_standard_error = np.sqrt(1 / np.sum(weights))
@@ -546,7 +549,7 @@ class ExperimentAnalyzer:
         meta_results['stat_significance'] = 1 if meta_results['pvalue'] < self._alpha else 0
         return meta_results
 
-    def aggregate_effects(self, data: Optional[pd.DataFrame] = None, grouping_cols: Optional[List[str]] = None) -> pd.DataFrame:
+    def aggregate_effects(self, data: pd.DataFrame | None = None, grouping_cols: list[str] | None = None) -> pd.DataFrame:  # noqa: E501
         """
         Aggregate effects using a weighted average based on the size of the treatment group.
 
@@ -614,7 +617,7 @@ class ExperimentAnalyzer:
         return output
 
     @property
-    def imbalance(self) -> Optional[pd.DataFrame]:
+    def imbalance(self) -> pd.DataFrame | None:
         """
         Returns the imbalance DataFrame.
         """
@@ -632,7 +635,7 @@ class ExperimentAnalyzer:
             self._logger.warning('No imbalance information available!')
             return None
 
-    def __transform_tuple_column(self, df: pd.DataFrame, tuple_column: str, new_columns: List[str]) -> pd.DataFrame:
+    def __transform_tuple_column(self, df: pd.DataFrame, tuple_column: str, new_columns: list[str]) -> pd.DataFrame:
         """
         Transforms a column of tuples into separate columns.
 
@@ -654,14 +657,14 @@ class ExperimentAnalyzer:
 
         return df
 
-    def __ensure_list(self, item: Optional[Union[str, List[str]]]) -> List[str]:
+    def __ensure_list(self, item: str | list[str] | None) -> list[str]:
         """Ensure the input is a list."""
         if item is None:
             return []
         return item if isinstance(item, list) else [item]
 
     @property
-    def results(self) -> Optional[pd.DataFrame]:
+    def results(self) -> pd.DataFrame | None:
         """"
         Returns the results DataFrame
         """
@@ -672,7 +675,7 @@ class ExperimentAnalyzer:
             return None
 
     @property
-    def balance(self) -> Optional[pd.DataFrame]:
+    def balance(self) -> pd.DataFrame | None:
         """"
         Returns the balance DataFrame
         """
@@ -683,7 +686,7 @@ class ExperimentAnalyzer:
             return None
 
     @property
-    def adjusted_balance(self) -> Optional[pd.DataFrame]:
+    def adjusted_balance(self) -> pd.DataFrame | None:
         """"
         Returns the adjusted balance DataFrame
         """
@@ -693,17 +696,17 @@ class ExperimentAnalyzer:
             self._logger.warning('No adjusted balance information available!')
             return None
 
-    def __ensure_spark_df(self, dataframe: Union[pd.DataFrame, DataFrame]) -> DataFrame:
+    def __ensure_spark_df(self, dataframe: pd.DataFrame | DataFrame) -> DataFrame:
         """
         Convert a Pandas DataFrame to a PySpark DataFrame if it is a Pandas DataFrame.
         """
         if isinstance(dataframe, pd.DataFrame):
-            spark_df = spark.createDataFrame(dataframe)
+            spark_df = spark.createDataFrame(dataframe)  # noqa: F405
             return spark_df
         else:
             return dataframe
 
-    def get_attribute(self, attribute: str) -> Optional[str]:
+    def get_attribute(self, attribute: str) -> str | None:
         """
         Get an attribute of the class.
 

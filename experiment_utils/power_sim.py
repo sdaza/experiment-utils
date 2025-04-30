@@ -2,17 +2,17 @@
 PowerSim class for simulation of power analysis.
 """
 
-import logging
 import itertools
-import pandas as pd
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import seaborn as sns
+import statsmodels.api as sm
 from multiprocess.pool import ThreadPool
 from scipy import stats
-import statsmodels.api as sm
-from .utils import log_and_raise_error, get_logger
-from typing import List, Tuple, Dict, Union
+
+from .utils import get_logger, log_and_raise_error
 
 
 class PowerSim:
@@ -20,7 +20,7 @@ class PowerSim:
     PowerSim class for simulation of power analysis.
     """
     def __init__(self, metric: str = 'proportion', relative_effect: bool = False, nsim: int = 100,
-                 variants: int = None, comparisons: List[Tuple[int, int]] = None, alternative: str = 'two-tailed', alpha: float = 0.05,
+                 variants: int = None, comparisons: list[tuple[int, int]] = None, alternative: str = 'two-tailed', alpha: float = 0.05,  # noqa: E501
                  correction: str = 'bonferroni', fdr_method: str = 'indep') -> None:
         """
         PowerSim class for simulation of power analysis.
@@ -52,15 +52,15 @@ class PowerSim:
         self.metric = metric
         self.relative_effect = relative_effect
         self.variants = variants
-        self.comparisons = list(itertools.combinations(range(self.variants + 1), 2)) if comparisons is None else comparisons
+        self.comparisons = list(itertools.combinations(range(self.variants + 1), 2)) if comparisons is None else comparisons  # noqa: E501
         self.nsim = nsim
         self.alternative = alternative
         self.alpha = alpha
         self.correction = correction
         self.fdr_method = fdr_method
 
-    def __run_experiment(self, baseline: List[float] = [1.0], sample_size: List[int] = [100], effect: List[float] = [0.10],
-                         compliance: List[float] = [1.0], standard_deviation: List[float] = [1]) -> Tuple[np.ndarray, np.ndarray]:
+    def __run_experiment(self, baseline: list[float] = None, sample_size: list[int] = None, effect: list[float] = None,
+                         compliance: list[float] = None, standard_deviation: list[float] = None) -> tuple[np.ndarray, np.ndarray]:  # noqa: E501
         """
         Simulate data to run power analysis.
 
@@ -83,29 +83,39 @@ class PowerSim:
         """
 
         # initial checks
+        if effect is None:
+            effect = [0.1]
+        if standard_deviation is None:
+            standard_deviation = [1]
+        if sample_size is None:
+            sample_size = [100]
+        if compliance is None:
+            compliance = [1.0]
+        if baseline is None:
+            baseline = [1.0]
         if len(effect) != self.variants:
             if len(effect) > 1:
-                log_and_raise_error(self.logger, 'Effects should be same length as the number of self.variants or length 1!')
+                log_and_raise_error(self.logger, 'Effects should be same length as the number of self.variants or length 1!')  # noqa: E501
             effect = list(itertools.repeat(effect[0], self.variants))
 
         if len(compliance) != self.variants:
             if len(compliance) > 1:
-                log_and_raise_error(self.logger, 'Compliance rates should be same length as the number of self.variants or length 1!')
+                log_and_raise_error(self.logger, 'Compliance rates should be same length as the number of self.variants or length 1!')  # noqa: E501
             compliance = list(itertools.repeat(compliance[0], self.variants))
 
         if len(standard_deviation) != self.variants + 1:
             if len(standard_deviation) > 1:
-                log_and_raise_error(self.logger, 'Standard deviations should be same length as the number of self.variants + 1 or length 1!')
+                log_and_raise_error(self.logger, 'Standard deviations should be same length as the number of self.variants + 1 or length 1!')  # noqa: E501
             standard_deviation = list(itertools.repeat(standard_deviation[0], self.variants + 1))
 
         if len(sample_size) != self.variants + 1:
             if len(sample_size) > 1:
-                log_and_raise_error(self.logger, 'N should be same length as the number of self.variants + 1 or length 1!')
+                log_and_raise_error(self.logger, 'N should be same length as the number of self.variants + 1 or length 1!')  # noqa: E501
             sample_size = list(itertools.repeat(sample_size[0], self.variants + 1))
 
         if len(baseline) != self.variants + 1:
             if len(baseline) > 1:
-                log_and_raise_error(self.logger, 'Baseline values should be same length as the number of self.variants + 1 or length 1!')
+                log_and_raise_error(self.logger, 'Baseline values should be same length as the number of self.variants + 1 or length 1!')  # noqa: E501
             baseline = list(itertools.repeat(baseline[0], self.variants + 1))
 
         re = list(range(self.variants))
@@ -144,7 +154,7 @@ class PowerSim:
                     re[i] = baseline[i + 1] + effect[i]
 
                 t_data_c = np.random.binomial(n=1, size=int(np.round(sample_size[i + 1] * compliance[i])), p=re[i])
-                t_data_nc = np.random.binomial(n=1, size=int(np.round(sample_size[i + 1] * (1 - compliance[i]))), p=baseline[i + 1])
+                t_data_nc = np.random.binomial(n=1, size=int(np.round(sample_size[i + 1] * (1 - compliance[i]))), p=baseline[i + 1])  # noqa: E501
                 t_data = np.append(t_data_c, t_data_nc)
                 dd = np.append(dd, t_data)
                 vv = np.append(vv, list(itertools.repeat(i + 1, len(t_data))))
@@ -160,8 +170,8 @@ class PowerSim:
                 else:
                     re[i] = baseline[i + 1] + effect[i]
 
-                t_data_c = np.random.normal(re[i], standard_deviation[i + 1], int(np.round(sample_size[i + 1] * compliance[i])))
-                t_data_nc = np.random.normal(baseline[i + 1], standard_deviation[i + 1], int(np.round(sample_size[i + 1] * (1 - compliance[i]))))
+                t_data_c = np.random.normal(re[i], standard_deviation[i + 1], int(np.round(sample_size[i + 1] * compliance[i])))  # noqa: E501
+                t_data_nc = np.random.normal(baseline[i + 1], standard_deviation[i + 1], int(np.round(sample_size[i + 1] * (1 - compliance[i]))))  # noqa: E501
 
                 t_data = np.append(t_data_c, t_data_nc)
                 dd = np.append(dd, t_data)
@@ -169,7 +179,7 @@ class PowerSim:
 
         return dd, vv
 
-    def get_power(self, baseline: List[float] = [1.0], effect: List[float] = [0.10], sample_size: List[int] = [1000], compliance: List[float] = [1.0], standard_deviation: List[float] = [1]) -> pd.DataFrame:
+    def get_power(self, baseline: list[float] = None, effect: list[float] = None, sample_size: list[int] = None, compliance: list[float] = None, standard_deviation: list[float] = None) -> pd.DataFrame:  # noqa: E501
         '''
         Estimate power using simulation.
 
@@ -191,13 +201,25 @@ class PowerSim:
         power : float
         '''
 
+        # Set default values for mutable arguments
+        if baseline is None:
+            baseline = [1.0]
+        if effect is None:
+            effect = [0.10]
+        if sample_size is None:
+            sample_size = [1000]
+        if compliance is None:
+            compliance = [1.0]
+        if standard_deviation is None:
+            standard_deviation = [1]
+
         # create empty values for results
         pvalues = {}
         for c in range(len(self.comparisons)):
             pvalues[c] = []
 
         # iterate over simulations
-        for i in range(self.nsim):
+        for _i in range(self.nsim):
             # y = output, x = index of condition
             y, x = self.__run_experiment(baseline=baseline, effect=effect,
                                          sample_size=sample_size, compliance=compliance,
@@ -245,7 +267,7 @@ class PowerSim:
             }
 
             if self.correction in correction_methods:
-                significant = correction_methods[self.correction](np.array(l_pvalues), self.alpha / pvalue_adjustment[self.alternative])
+                significant = correction_methods[self.correction](np.array(l_pvalues), self.alpha / pvalue_adjustment[self.alternative])  # noqa: E501
 
             for v, p in enumerate(significant):
                 pvalues[v].append(p)
@@ -256,7 +278,7 @@ class PowerSim:
 
         return power
 
-    def get_power_from_data(self, df: pd.DataFrame, metric_col: str, sample_size: List[int] = [100], effect: List[float] = [0.10], compliance: List[float] = [1.0]) -> pd.DataFrame:
+    def get_power_from_data(self, df: pd.DataFrame, metric_col: str, sample_size: list[int] = None, effect: list[float] = None, compliance: list[float] = None) -> pd.DataFrame:  # noqa: E501
         """
         Simulate statistical power using samples from the provided data.
 
@@ -278,6 +300,14 @@ class PowerSim:
         pd.DataFrame
             DataFrame with each comparison (as defined in self.comparisons) and the corresponding estimated power.
         """
+        # Set default values for mutable arguments
+        if sample_size is None:
+            sample_size = [100]
+        if effect is None:
+            effect = [0.10]
+        if compliance is None:
+            compliance = [1.0]
+
         # Verify metric column exists
         if metric_col not in df.columns:
             log_and_raise_error(self.logger, f"Column '{metric_col}' not found in dataframe.")
@@ -285,12 +315,12 @@ class PowerSim:
             # initial checks
         if len(effect) != self.variants:
             if len(effect) > 1:
-                log_and_raise_error(self.logger, 'Effects should be same length as the number of self.variants or length 1!')
+                log_and_raise_error(self.logger, 'Effects should be same length as the number of self.variants or length 1!')  # noqa: E501
             effect = list(itertools.repeat(effect[0], self.variants))
 
         if len(compliance) != self.variants:
             if len(compliance) > 1:
-                log_and_raise_error(self.logger, 'Compliance rates should be same length as the number of self.variants or length 1!')
+                log_and_raise_error(self.logger, 'Compliance rates should be same length as the number of self.variants or length 1!')  # noqa: E501
             compliance = list(itertools.repeat(compliance[0], self.variants))
 
         # compliance cannot be higher than 1 or lower than 0
@@ -299,21 +329,21 @@ class PowerSim:
 
         if len(sample_size) != self.variants + 1:
             if len(sample_size) > 1:
-                log_and_raise_error(self.logger, 'N should be same length as the number of self.variants + 1 or length 1!')
+                log_and_raise_error(self.logger, 'N should be same length as the number of self.variants + 1 or length 1!')  # noqa: E501
             sample_size = list(itertools.repeat(sample_size[0], self.variants + 1))
 
         # The sum of sample size cannot be higher than the number of rows in the dataframe
         if sum(sample_size) > df.shape[0]:
-            log_and_raise_error(self.logger, 'Sum of sample sizes cannot be higher than the number of rows in the dataframe!')
+            log_and_raise_error(self.logger, 'Sum of sample sizes cannot be higher than the number of rows in the dataframe!')  # noqa: E501
 
         # Adjust sample size by compliance
-        sample_size = [int(np.round(s * c)) for s, c in zip(sample_size, [1] + compliance)]
+        sample_size = [int(np.round(s * c)) for s, c in zip(sample_size, [1] + compliance, strict=False)]
 
         # Initialize storage for significance results over simulation iterations
         pvalues_dict = {c: [] for c in range(len(self.comparisons))}
         n_iter = self.nsim  # number of bootstrap iterations
 
-        for i in range(n_iter):
+        for _i in range(n_iter):
             # Create a bootstrap sample per group (sampling with replacement) for each variant and sample size
 
             boot_samples = {}
@@ -383,8 +413,8 @@ class PowerSim:
         power_df = power_df[["comparisons", "power"]]
         return power_df
 
-    def grid_sim_power(self, baseline_rates: List[float] = None, effects: List[float] = None, sample_sizes: List[int] = None,
-                       compliances: List[List[float]] = [[1]], standard_deviations: List[List[float]] = [[1]], threads: int = 3, plot: bool = False) -> pd.DataFrame:
+    def grid_sim_power(self, baseline_rates: list[float] = None, effects: list[float] = None, sample_sizes: list[int] = None,  # noqa: E501
+                       compliances: list[list[float]] = None, standard_deviations: list[list[float]] = None, threads: int = 3, plot: bool = False) -> pd.DataFrame:  # noqa: E501
         """
         Return Pandas DataFrame with parameter combinations and statistical power
 
@@ -406,6 +436,10 @@ class PowerSim:
             Whether to plot the results.
         """
 
+        if compliances is None:
+            compliances = [[1]]
+        if standard_deviations is None:
+            standard_deviations = [[1]]
         pdict = {'baseline': baseline_rates, 'effect': effects, 'sample_size': sample_sizes,
                  'compliance': compliances, 'standard_deviation': standard_deviations}
         grid = self.__expand_grid(pdict)
@@ -461,16 +495,16 @@ class PowerSim:
         d_relative_effect = {True: 'relative', False: 'absolute'}
         effects = list(temp.effect.unique())
         for i in effects:
-            plot = sns.lineplot(x='sample_size', y='power', hue='comparison', errorbar=None, data=temp[temp['effect'] == i], legend='full')
+            plot = sns.lineplot(x='sample_size', y='power', hue='comparison', errorbar=None, data=temp[temp['effect'] == i], legend='full')  # noqa: E501
             plt.hlines(y=0.8, linestyles='dashed', xmin=0, xmax=len(temp.sample_size.unique()) - 1, colors='gray')
-            plt.title(f'Simulated power estimation for {self.metric}s, {d_relative_effect[self.relative_effect]} effects {str(i)}\n (sims per scenario:{self.nsim})')
+            plt.title(f'Simulated power estimation for {self.metric}s, {d_relative_effect[self.relative_effect]} effects {str(i)}\n (sims per scenario:{self.nsim})')  # noqa: E501
             plt.legend(bbox_to_anchor=(1.05, 1), title='comparison', loc='upper left')
             plt.xlabel('\n sample size')
             plt.ylabel('power\n')
             plt.setp(plot.get_xticklabels(), rotation=45)
             plt.show()
 
-    def __expand_grid(self, dictionary: Dict[str, List[Union[float, int]]]) -> pd.DataFrame:
+    def __expand_grid(self, dictionary: dict[str, list[float | int]]) -> pd.DataFrame:
         '''
         Auxiliary function to expand a dictionary
         '''

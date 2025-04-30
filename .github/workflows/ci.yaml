@@ -21,22 +21,20 @@ jobs:
       with:
         python-version: '3.10'  # Specify the Python version
 
-    - name: Install Poetry
-      run: |
-        python -m pip install --upgrade pip
-        pip install poetry
+    - name: Install uv
+      run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
     - name: Install dependencies
       run: |
-        poetry install
+        uv sync
 
-    - name: Linting
+    - name: Linting with Ruff
       run: |
-        # Install flake8
-        pip install flake8
-        # Run flake8
-        flake8 . --ignore=E501,F401,F403,F405,W504,E125
+        # Install ruff
+        uv pip install ruff
+        # Run ruff using uv run
+        uv run ruff check .
 
     - name: Run tests
       run: |
-        poetry run pytest tests/  # Adjust the path to your test directory
+        uv run pytest tests/  # Adjust the path to your test directory

@@ -1,14 +1,15 @@
 """"This module contains classes for performing causal inference using various estimators."""
 
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 import statsmodels.formula.api as smf
 from linearmodels.iv import IV2SLS
-from typing import Dict, List, Optional, Union
-from xgboost import XGBClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import PolynomialFeatures
-from .utils import log_and_raise_error, get_logger
+from xgboost import XGBClassifier
+
+from .utils import get_logger, log_and_raise_error
 
 
 class Estimators:
@@ -16,7 +17,7 @@ class Estimators:
     A class for performing causal inference using various estimators.
     """
 
-    def __init__(self, treatment_col: str, instrument_col: Optional[str] = None,
+    def __init__(self, treatment_col: str, instrument_col: str | None = None,
                  target_ipw_effect: str = 'ATT', alpha: float = 0.05,
                  min_ps_score: float = 0.05, max_ps_score: float = 0.95,
                  polynomial_ipw: bool = False) -> None:
@@ -30,7 +31,7 @@ class Estimators:
         self._min_ps_score = min_ps_score
         self._polynomial_ipw = polynomial_ipw
 
-    def __create_formula(self, outcome_variable: str, covariates: Optional[List[str]], model_type: str = 'regression') -> str:
+    def __create_formula(self, outcome_variable: str, covariates: list[str] | None, model_type: str = 'regression') -> str:  # noqa: E501
         """
         Create the formula for the regression model.
 
@@ -54,7 +55,7 @@ class Estimators:
             formula = formula_dict[model_type]
         return formula
 
-    def linear_regression(self, data: pd.DataFrame, outcome_variable: str, covariates: Optional[List[str]] = None) -> Dict[str, Union[str, int, float]]:
+    def linear_regression(self, data: pd.DataFrame, outcome_variable: str, covariates: list[str] | None = None) -> dict[str, str | int | float]:  # noqa: E501
         """
         Perform linear regression on the given data.
 
@@ -101,7 +102,7 @@ class Estimators:
         }
 
     def weighted_least_squares(self, data: pd.DataFrame, outcome_variable: str,
-                               weight_column: str, covariates: Optional[List[str]] = None) -> Dict[str, Union[str, int, float]]:
+                               weight_column: str, covariates: list[str] | None = None) -> dict[str, str | int | float]:
         """
         Perform weighted least squares regression on the given data.
 
@@ -151,7 +152,7 @@ class Estimators:
             "stat_significance": 1 if pvalue < self._alpha else 0
         }
 
-    def iv_regression(self, data: pd.DataFrame, outcome_variable: str, covariates: Optional[List[str]] = None) -> Dict[str, Union[str, int, float]]:
+    def iv_regression(self, data: pd.DataFrame, outcome_variable: str, covariates: list[str] | None = None) -> dict[str, str | int | float]:  # noqa: E501
         """"
         Perform instrumental variable regression on the given data.
 
@@ -199,7 +200,7 @@ class Estimators:
             "stat_significance": 1 if pvalue < self._alpha else 0
         }
 
-    def ipw_logistic(self, data: pd.DataFrame, covariates: List[str], penalty: str = 'l2', C: float = 1.0, max_iter: int = 5000) -> pd.DataFrame:
+    def ipw_logistic(self, data: pd.DataFrame, covariates: list[str], penalty: str = 'l2', C: float = 1.0, max_iter: int = 5000) -> pd.DataFrame:  # noqa: E501
         """
         Estimate the Inverse Probability Weights (IPW) using logistic regression with regularization.
 
@@ -236,7 +237,7 @@ class Estimators:
         logistic_model.fit(X, y)
 
         if not logistic_model.n_iter_[0] < logistic_model.max_iter:
-            self._logger.warning("Logistic regression model did not converge. Consider increasing the number of iterations or adjusting other parameters.")
+            self._logger.warning("Logistic regression model did not converge. Consider increasing the number of iterations or adjusting other parameters.")  # noqa: E501
 
         data['propensity_score'] = logistic_model.predict_proba(X)[:, 1]
         data['propensity_score'] = np.minimum(self._max_ps_score, data['propensity_score'])
@@ -245,7 +246,7 @@ class Estimators:
         data = self.__calculate_stabilized_weights(data)
         return data
 
-    def ipw_xgboost(self, data: pd.DataFrame, covariates: List[str]) -> pd.DataFrame:
+    def ipw_xgboost(self, data: pd.DataFrame, covariates: list[str]) -> pd.DataFrame:
         """
         Estimate the Inverse Probability Weights (IPW) using XGBoost.
 
