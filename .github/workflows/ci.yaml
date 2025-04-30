@@ -32,8 +32,8 @@ jobs:
       run: |
         # Install ruff
         uv pip install ruff
-        # Run ruff
-        ruff check .
+        # Run ruff using uv run
+        uv run ruff check .
 
     - name: Run tests
       run: |
