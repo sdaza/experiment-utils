@@ -13,9 +13,11 @@ from scipy import stats
 from scipy.stats import gaussian_kde
 
 from .estimators import Estimators
-from .spark_instance import *  # noqa: F403
+from .spark_instance import SparkInstance  # noqa: F403
 from .utils import get_logger, log_and_raise_error
 
+spark_instance = SparkInstance()
+spark = spark_instance.get_spark()
 
 class ExperimentAnalyzer:
     """
