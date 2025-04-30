@@ -32,8 +32,8 @@ class SparkInstance:
 
 
 # Remove module-level instantiation
-# spark_instance = SparkInstance()
-# spark = spark_instance.get_spark()
+spark_instance = SparkInstance()
+spark = spark_instance.get_spark()
 
 # Add a helper function for easy access
 def get_spark_session() -> SparkSession:
