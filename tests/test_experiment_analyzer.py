@@ -1,9 +1,10 @@
-import pytest
-from experiment_utils.experiment_analyzer import ExperimentAnalyzer
-from experiment_utils.spark_instance import get_spark_session
 import numpy as np
 import pandas as pd
+import pytest
 from scipy.stats import truncnorm
+
+from experiment_utils.experiment_analyzer import ExperimentAnalyzer
+from experiment_utils.spark_instance import get_spark_session
 
 
 @pytest.fixture
@@ -89,7 +90,7 @@ def test_no_covariates(sample_data):
 
     try:
         analyzer.get_effects()
-        analyzer.results
+        _ = analyzer.results
         assert True
     except Exception as e:
         pytest.fail(f" raised an exception: {e}")
@@ -107,7 +108,7 @@ def test_no_experiment_identifier(sample_data):
 
     try:
         analyzer.get_effects()
-        analyzer.results
+        _ = analyzer.results
         assert True
     except Exception as e:
         pytest.fail(f" raised an exception: {e}")
@@ -129,7 +130,7 @@ def test_regression_covariates(sample_data):
 
     try:
         analyzer.get_effects()
-        analyzer.results
+        _ = analyzer.results
         assert True
     except Exception as e:
         pytest.fail(f" raised an exception: {e}")
@@ -152,7 +153,7 @@ def test_no_adjustment(sample_data):
 
     try:
         analyzer.get_effects()
-        analyzer.results
+        _ = analyzer.results
         assert True
     except Exception as e:
         pytest.fail(f" raised an exception: {e}")
@@ -176,7 +177,7 @@ def test_ipw_adjustment(sample_data):
 
     try:
         analyzer.get_effects()
-        analyzer.results
+        _ = analyzer.results
         assert True
     except Exception as e:
         pytest.fail(f" raised an exception: {e}")

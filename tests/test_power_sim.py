@@ -1,7 +1,8 @@
-import pytest
-from experiment_utils.power_sim import PowerSim
 import numpy as np
 import pandas as pd
+import pytest
+
+from experiment_utils.power_sim import PowerSim
 
 
 def test_power_estimation():
