@@ -1,6 +1,5 @@
 import pytest
 from experiment_utils.power_sim import PowerSim
-from experiment_utils.spark_instance import *
 import numpy as np
 import pandas as pd
 

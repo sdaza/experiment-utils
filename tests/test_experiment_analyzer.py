@@ -1,6 +1,6 @@
 import pytest
 from experiment_utils.experiment_analyzer import ExperimentAnalyzer
-from experiment_utils.spark_instance import *
+from experiment_utils.spark_instance import get_spark_session
 import numpy as np
 import pandas as pd
 from scipy.stats import truncnorm
@@ -69,6 +69,7 @@ def sample_data(
 
     # Combine data
     data = pd.concat([model_data, random_data])
+    spark = get_spark_session() # Get the SparkSession
     df = spark.createDataFrame(data)
 
     return df
