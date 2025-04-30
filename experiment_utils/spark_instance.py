@@ -2,18 +2,19 @@
 Spark instance
 """
 
-from pyspark.sql import SparkSession
 from typing import Optional
+
+from pyspark.sql import SparkSession
 
 
 class SparkInstance:
     """Singleton class to create a Spark session"""
     _instance: Optional['SparkInstance'] = None
-    spark: Optional[SparkSession] = None  # Initialize as None
+    spark: SparkSession | None = None  # Initialize as None
 
     def __new__(cls) -> 'SparkInstance':
         if cls._instance is None:
-            cls._instance = super(SparkInstance, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             # Do not create SparkSession here anymore
         return cls._instance
 

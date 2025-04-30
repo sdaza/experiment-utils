@@ -28,12 +28,12 @@ jobs:
       run: |
         uv sync
 
-    - name: Linting
+    - name: Linting with Ruff
       run: |
-        # Install flake8
-        uv pip install flake8
-        # Run flake8
-        flake8 . --ignore=E501,F401,F403,F405,W504,E125
+        # Install ruff
+        uv pip install ruff
+        # Run ruff
+        ruff check .
 
     - name: Run tests
       run: |

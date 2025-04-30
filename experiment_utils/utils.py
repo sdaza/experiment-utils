@@ -4,7 +4,6 @@ assumptions about the format of input data.
 """
 
 import logging
-from typing import Type, Union
 
 
 def turn_off_package_logger(package: str) -> None:
@@ -44,7 +43,7 @@ def get_logger(name: str) -> logging.Logger:
     return logger
 
 
-def log_and_raise_error(logger: logging.Logger, message: str, exception_type: Type[Exception] = ValueError) -> None:
+def log_and_raise_error(logger: logging.Logger, message: str, exception_type: type[Exception] = ValueError) -> None:
     """"
     Logs an error message and raises an exception of the specified type.
 
